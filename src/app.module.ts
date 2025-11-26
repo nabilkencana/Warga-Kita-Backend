@@ -10,10 +10,11 @@ import { ReportsModule } from './reports/reports.module';
 import { EmergencyModule } from './emergency/emergency.module';
 import { AdminModule } from './admin/admin.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { BillsModule } from './bills/bills.module';
 
 @Module({
   imports: [UsersModule,  AuthModule, PrismaModule , 
-    ConfigModule.forRoot({ isGlobal: true }), AnnouncementsModule, ReportsModule,EmergencyModule , AdminModule, TransactionsModule// 🔥 aktifkan .env
+    ConfigModule.forRoot({ isGlobal: true }), AnnouncementsModule, ReportsModule,EmergencyModule , AdminModule, TransactionsModule, BillsModule// 🔥 aktifkan .env
   ],
   controllers: [AppController],
   providers: [AppService],
