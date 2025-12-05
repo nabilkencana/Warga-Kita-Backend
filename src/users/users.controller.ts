@@ -15,15 +15,19 @@ import {
   NotFoundException,
   ValidationPipe,
   UsePipes,
+  Patch,
+  UseGuards
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
+import { CreateUserDto, UpdateUserDto, VerifyKKDto } from './dto/create-user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
+  prisma: any;
   constructor(private readonly usersService: UsersService) { }
 
   @Get()
@@ -245,4 +249,87 @@ export class UsersController {
     }
     return user;
   }
+
+  // 🟢 Get KK verification details
+  @Get(':id/kk-details')
+  @UseGuards(JwtAuthGuard)
+  async getKKDetails(@Param('id') id: string) {
+    return this.usersService.getKKVerificationDetails(+id);
+  }
+
+  // 🟢 Verify or reject KK document
+  @Patch(':id/verify-kk')
+  @UseGuards(JwtAuthGuard)
+  async verifyKKDocument(
+    @Param('id') id: string,
+    @Body() verifyKKDto: VerifyKKDto,
+  ) {
+    return this.usersService.verifyKKDocument(+id, verifyKKDto);
+  }
+
+  // 🟢 Delete KK document
+  @Delete(':id/kk-document')
+  @UseGuards(JwtAuthGuard)
+  async deleteKKDocument(@Param('id') id: string) {
+    return this.usersService.deleteKKDocument(+id);
+  }
+
+  // 🟢 Upload KK document (untuk user update)
+  async findById(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        namaLengkap: true,
+        email: true,
+        nik: true,
+        tanggalLahir: true,
+        tempatLahir: true,
+        nomorTelepon: true,
+        instagram: true,
+        facebook: true,
+        alamat: true,
+        kota: true,
+        negara: true,
+        kodePos: true,
+        rtRw: true,
+        role: true,
+        isVerified: true,
+
+        // KK Verification Fields
+        kkFile: true,
+        kkFilePublicId: true,
+        kkRejectionReason: true,
+        kkVerifiedAt: true,
+        kkVerifiedBy: true,
+
+        createdAt: true,
+        updatedAt: true,
+        bio: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User dengan ID ${id} tidak ditemukan`);
+    }
+
+    // Tambahkan KK verification status
+    const userWithKKStatus = {
+      ...user,
+      kkVerificationStatus: this.getKKVerificationStatus(user),
+    };
+
+    return userWithKKStatus;
+  }
+
+  // Helper method untuk menentukan status KK
+  private getKKVerificationStatus(user: any): string {
+    if (user.isVerified) {
+      return 'verified';
+    } else if (user.kkRejectionReason) {
+      return 'rejected';
+    }
+    return 'pending';
+  }
+
 }

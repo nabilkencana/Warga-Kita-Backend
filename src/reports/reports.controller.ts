@@ -1,163 +1,196 @@
 // src/reports/reports.controller.ts
 import {
-    Controller,
-    Get,
-    Post,
-    Put,
-    Patch,
-    Delete,
-    Body,
-    Param,
-    Query,
-    UseInterceptors,
-    UploadedFile,
-    ParseIntPipe,
-    BadRequestException,
+    Controller, Get, Post, Put, Delete, Body,
+    Param, Query, UseInterceptors, UploadedFile,
+    UseGuards,
+    BadRequestException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
-import { FilesService } from '../files/files.service';
+import { CreateReportDto } from './dto/create-report.dto';
+import { UpdateReportDto } from './dto/update-report.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('reports')
 export class ReportsController {
-    constructor(
-        private readonly reportsService: ReportsService,
-        private readonly filesService: FilesService,
-    ) { }
+    constructor(private readonly reportsService: ReportsService) { }
 
-    // CREATE - Buat laporan baru
+    // Create report dengan file upload
     @Post()
-    @UseInterceptors(FileInterceptor('image'))
+    @UseGuards(JwtAuthGuard)
+    @UseInterceptors(FileInterceptor('imageFile', {
+        limits: {
+            fileSize: 10 * 1024 * 1024, // 10MB max
+        },
+        fileFilter: (req, file, cb) => {
+            const allowedMimeTypes = [
+                'image/jpeg',
+                'image/png',
+                'image/jpg',
+                'image/gif',
+            ];
+
+            if (allowedMimeTypes.includes(file.mimetype)) {
+                cb(null, true);
+            } else {
+                cb(
+                    new BadRequestException(
+                        'Format file tidak didukung. Gunakan JPG, PNG, atau GIF',
+                    ),
+                    false,
+                );
+            }
+        },
+    }))
     async create(
-        @Body() body: any,
-        @UploadedFile() image?: Express.Multer.File,
+        @Body() createReportDto: CreateReportDto,
+        @UploadedFile() imageFile?: Express.Multer.File,
     ) {
-        try {
-            let imageUrl: string | undefined;
-
-            // Handle file upload jika ada
-            if (image) {
-                imageUrl = await this.filesService.saveFile(image);
-            }
-
-            // Validasi field required
-            if (!body.title || !body.description || !body.category) {
-                throw new BadRequestException('Judul, deskripsi, dan kategori harus diisi');
-            }
-
-            // Handle userId - pastikan number atau undefined
-            let userId: number | undefined;
-            if (body.userId && !isNaN(Number(body.userId))) {
-                userId = Number(body.userId);
-            }
-
-            const reportData = {
-                title: body.title,
-                description: body.description,
-                category: body.category,
-                imageUrl: imageUrl,
-                userId: userId,
-            };
-
-            return this.reportsService.create(reportData);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            throw new BadRequestException(message || 'Gagal ...');
-        }
+        console.log('📥 Received DTO:', createReportDto);
+        console.log('📁 Has imageFile?:', !!imageFile);
+        console.log('🔗 imageUrl in DTO:', createReportDto.imageUrl); // Jika ada
+        
+        return this.reportsService.create({
+            ...createReportDto,
+            imageFile,
+        });
     }
 
-    // READ - Get semua laporan
+    // Get all reports dengan pagination dan search
     @Get()
     async findAll(
-        @Query('category') category?: string,
-        @Query('status') status?: string,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
         @Query('search') search?: string,
     ) {
-        if (category) {
-            return this.reportsService.findByCategory(category);
-        }
-
-        if (status) {
-            return this.reportsService.findByStatus(status);
-        }
-
-        if (search) {
-            return this.reportsService.searchByTitle(search);
-        }
-
-        return this.reportsService.findAll();
+        return this.reportsService.findAll(
+            parseInt(page),
+            parseInt(limit),
+            search,
+        );
     }
 
-    // READ - Get laporan by ID
+    // Get report by ID
     @Get(':id')
-    async findOne(@Param('id', ParseIntPipe) id: number) {
-        return this.reportsService.findOne(id);
+    async findOne(@Param('id') id: string) {
+        return this.reportsService.findOne(parseInt(id));
     }
 
-    // UPDATE - Update laporan
+    // Update report dengan file upload
     @Put(':id')
-    @UseInterceptors(FileInterceptor('image'))
-    async update(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() body: any,
-        @UploadedFile() image?: Express.Multer.File,
-    ) {
-        try {
-            let imageUrl: string | undefined;
+    @UseGuards(JwtAuthGuard)
+    @UseInterceptors(FileInterceptor('imageFile', {
+        limits: {
+            fileSize: 10 * 1024 * 1024,
+        },
+        fileFilter: (req, file, cb) => {
+            const allowedMimeTypes = [
+                'image/jpeg',
+                'image/png',
+                'image/jpg',
+                'image/gif',
+            ];
 
-            // Handle file upload jika ada
-            if (image) {
-                imageUrl = await this.filesService.saveFile(image);
+            if (allowedMimeTypes.includes(file.mimetype)) {
+                cb(null, true);
+            } else {
+                cb(
+                    new BadRequestException(
+                        'Format file tidak didukung. Gunakan JPG, PNG, atau GIF',
+                    ),
+                    false,
+                );
             }
-
-            const updateData: any = {};
-
-            if (body.title) updateData.title = body.title;
-            if (body.description) updateData.description = body.description;
-            if (body.category) updateData.category = body.category;
-            if (imageUrl) updateData.imageUrl = imageUrl;
-
-            return this.reportsService.update(id, updateData);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            throw new BadRequestException(message || 'Gagal ...');
-        }
-    }
-
-    // DELETE - Hapus laporan
-    @Delete(':id')
-    async remove(@Param('id', ParseIntPipe) id: number) {
-        return this.reportsService.remove(id);
-    }
-
-    // UPDATE STATUS - Update status laporan
-    @Patch(':id/status')
-    async updateStatus(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() body: any,
+        },
+    }))
+    async update(
+        @Param('id') id: string,
+        @Body() updateReportDto: UpdateReportDto,
+        @UploadedFile() imageFile?: Express.Multer.File,
     ) {
-        if (!body.status) {
-            throw new BadRequestException('Status harus diisi');
-        }
-
-        return this.reportsService.updateStatus(id, body.status);
+        return this.reportsService.update(parseInt(id), {
+            ...updateReportDto,
+            imageFile,
+        });
     }
 
-    // GET BY CATEGORY - Get laporan by kategori
+    // Delete report
+    @Delete(':id')
+    @UseGuards(JwtAuthGuard)
+    async remove(@Param('id') id: string) {
+        return this.reportsService.remove(parseInt(id));
+    }
+
+    // Update report status
+    @Put(':id/status')
+    @UseGuards(JwtAuthGuard)
+    async updateStatus(
+        @Param('id') id: string,
+        @Body() body: { status: string },
+    ) {
+        return this.reportsService.updateStatus(parseInt(id), body.status);
+    }
+
+    // Get reports by category
     @Get('category/:category')
-    async findByCategory(@Param('category') category: string) {
-        return this.reportsService.findByCategory(category);
+    async findByCategory(
+        @Param('category') category: string,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+    ) {
+        return this.reportsService.findByCategory(
+            category,
+            parseInt(page),
+            parseInt(limit),
+        );
     }
 
-    // GET BY STATUS - Get laporan by status
+    // Get reports by status
     @Get('status/:status')
-    async findByStatus(@Param('status') status: string) {
-        return this.reportsService.findByStatus(status);
+    async findByStatus(
+        @Param('status') status: string,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+    ) {
+        return this.reportsService.findByStatus(
+            status,
+            parseInt(page),
+            parseInt(limit),
+        );
     }
 
-    // SEARCH - Cari laporan
+    // Search reports
     @Get('search/:keyword')
-    async search(@Param('keyword') keyword: string) {
-        return this.reportsService.searchByTitle(keyword);
+    async searchByTitle(
+        @Param('keyword') keyword: string,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+    ) {
+        return this.reportsService.searchByTitle(
+            keyword,
+            parseInt(page),
+            parseInt(limit),
+        );
+    }
+
+    // Get report statistics
+    @Get('stats/summary')
+    async getReportStats() {
+        return this.reportsService.getReportStats();
+    }
+
+    // Get reports by user ID
+    @Get('user/:userId')
+    @UseGuards(JwtAuthGuard)
+    async findByUserId(
+        @Param('userId') userId: string,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+    ) {
+        return this.reportsService.findByUserId(
+            parseInt(userId),
+            parseInt(page),
+            parseInt(limit),
+        );
     }
 }

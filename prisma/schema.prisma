@@ -13,55 +13,60 @@ datasource db {
 
 // === USER MANAGEMENT ===
 model User {
-  id                        Int                 @id @default(autoincrement())
-  namaLengkap               String
-  nik                       String              @unique
-  tanggalLahir              DateTime
-  tempatLahir               String
-  email                     String              @unique
-  nomorTelepon              String
-  instagram                 String?
-  facebook                  String?
-  alamat                    String
-  kota                      String
-  negara                    String              @default("Indonesia")
-  kodePos                   String
-  rtRw                      String
-  kkFile                    String?
-  kkFilePublicId            String?               // Public ID Cloudinary untuk management file
-  role                      UserRole            @default(USER)
-  fotoProfil                String?
-  bio                       String?
-  isVerified                Boolean             @default(false)
-  twoFactorEnabled          Boolean             @default(false)
-  twoFactorSecret           String?
-  language                  String              @default("id")
-  biometricData             String?
-  otpCode                   String?
-  otpExpire                 DateTime?
-  isActive                  Boolean             @default(true)
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
+  id                                                                    Int                 @id @default(autoincrement())
+  namaLengkap                                                           String
+  nik                                                                   String              @unique
+  tanggalLahir                                                          DateTime
+  tempatLahir                                                           String
+  email                                                                 String              @unique
+  nomorTelepon                                                          String
+  instagram                                                             String?
+  facebook                                                              String?
+  alamat                                                                String
+  kota                                                                  String
+  negara                                                                String              @default("Indonesia")
+  kodePos                                                               String
+  rtRw                                                                  String
+  role                                                                  UserRole            @default(USER)
+  fotoProfil                                                            String?
+  bio                                                                   String?
+  isVerified                                                            Boolean             @default(false)
+  twoFactorEnabled                                                      Boolean             @default(false)
+  twoFactorSecret                                                       String?
+  language                                                              String              @default("id")
+  biometricData                                                         String?
+  otpCode                                                               String?
+  otpExpire                                                             DateTime?
+  isActive                                                              Boolean             @default(true)
+  createdAt                                                             DateTime            @default(now())
+  updatedAt                                                             DateTime            @updatedAt
+
+  // KK Verification Fields
+  kkFile              String?  // URL ke Cloudinary
+  kkFilePublicId      String?  // Public ID di Cloudinary
+  kkRejectionReason   String?  // Alasan penolakan
+  kkVerifiedAt                                                          DateTime?
+  kkVerifiedBy        String?  // ID atau nama admin yang memverifikasi
 
   // Relations - Existing
-  announcements             Announcement[]
-  reports                   Report[]
-  emergencies               Emergency[]
-  volunteers                Volunteer[]
-  adminDashboards           AdminDashboard[]
-  activityLogs              ActivityLog[]
+  announcements                                                         Announcement[]
+  reports                                                               Report[]
+  emergencies                                                           Emergency[]
+  volunteers                                                            Volunteer[]
+  adminDashboards                                                       AdminDashboard[]
+  activityLogs                                                          ActivityLog[]
 
   // Relations - Dana Community
-  transactions              Transaction[]      @relation("UserTransactions")
-  createdTransactions       Transaction[]      @relation("TransactionCreatedBy")
-  payments                  Payment[]          @relation("UserPayments")
-  memberPayments            MemberPayment[]
-  createdFinancialSummaries FinancialSummary[]
-  createdFinancialReports   FinancialReport[]
+  transactions                                                          Transaction[]      @relation("UserTransactions")
+  createdTransactions                                                   Transaction[]      @relation("TransactionCreatedBy")
+  payments                                                              Payment[]          @relation("UserPayments")
+  memberPayments                                                        MemberPayment[]
+  createdFinancialSummaries                                             FinancialSummary[]
+  createdFinancialReports                                               FinancialReport[]
 
   // Relations - Bill System (NEW)
-  bills                     Bill[]             @relation("UserBills")
-  createdBills              Bill[]             @relation("CreatedBills")
+  bills                                                                 Bill[]             @relation("UserBills")
+  createdBills                                                          Bill[]             @relation("CreatedBills")
 
   @@map("users")
 }
@@ -76,24 +81,24 @@ enum UserRole {
 
 // Transaksi (Pemasukan/Pengeluaran)
 model Transaction {
-  id          Int              @id @default(autoincrement())
-  amount      Float
-  type        TransactionType
-  category    String
-  description String
-  date        DateTime         @default(now())
-  proofImage  String?
-  createdBy   Int
+  id                                                                    Int              @id @default(autoincrement())
+  amount                                                                Float
+  type                                                                  TransactionType
+  category                                                              String
+  description                                                           String
+  date                                                                  DateTime         @default(now())
+  proofImage                                                            String?
+  createdBy                                                             Int
   userId      Int? // Untuk transaksi yang terkait dengan user tertentu
   paymentId   Int? // Jika transaksi terkait pembayaran
 
-  // Relations
-  user        User?            @relation("UserTransactions", fields: [userId], references: [id])
-  createdByUser User           @relation("TransactionCreatedBy", fields: [createdBy], references: [id])
-  payment     Payment?         @relation("PaymentTransactions", fields: [paymentId], references: [id])
+  //                                                                    Relations
+  user                                                                  User?           @relation("UserTransactions", fields: [userId], references: [id])
+  createdByUser                                                         User            @relation("TransactionCreatedBy", fields: [createdBy], references: [id])
+  payment                                                               Payment?        @relation("PaymentTransactions", fields: [paymentId], references: [id])
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt                                                             DateTime         @default(now())
+  updatedAt                                                             DateTime         @updatedAt
 
   @@map("transactions")
 }
@@ -105,26 +110,26 @@ enum TransactionType {
 
 // Pembayaran (QRIS, Mobile Banking, Cash)
 model Payment {
-  id            Int            @id @default(autoincrement())
-  amount        Float
-  method        PaymentMethod
-  status        PaymentStatus  @default(PENDING)
-  description   String
-  dueDate       DateTime
-  paidDate      DateTime?
+  id                                                                  Int             @id @default(autoincrement())
+  amount                                                              Float
+  method                                                              PaymentMethod
+  status                                                              PaymentStatus   @default(PENDING)
+  description                                                         String
+  dueDate                                                             DateTime
+  paidDate                                                            DateTime?
   qrCode        String?        // QR Code data untuk QRIS
   bankReference String?        // Referensi bank untuk mobile banking
   receiptImage  String?        // Bukti transfer/tanda terima
   userId        Int            // User yang melakukan pembayaran
 
-  // Relations
-  user          User           @relation("UserPayments", fields: [userId], references: [id])
-  transactions  Transaction[]  @relation("PaymentTransactions")
-  memberPayment MemberPayment? @relation("PaymentMemberPayment")
-  bill          Bill?          @relation("PaymentBill") // NEW: Relation ke Bill
+  //                                                                  Relations
+  user                                                                User           @relation("UserPayments", fields: [userId], references: [id])
+  transactions                                                        Transaction[]  @relation("PaymentTransactions")
+  memberPayment                                                       MemberPayment? @relation("PaymentMemberPayment")
+  bill                                                                Bill?          @relation("PaymentBill") // NEW: Relation ke Bill
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt                                                           DateTime        @default(now())
+  updatedAt                                                           DateTime        @updatedAt
 
   @@map("payments")
 }
@@ -146,19 +151,19 @@ enum PaymentStatus {
 
 // Status Pembayaran Member per Bulan
 model MemberPayment {
-  id       Int      @id @default(autoincrement())
+  id                                             Int        @id @default(autoincrement())
   month    Int      // 1-12
   year     Int      // 2024, 2025, etc
   amount   Float    // Jumlah yang harus dibayar
-  isPaid   Boolean  @default(false)
-  paidDate DateTime?
+  isPaid                                         Boolean    @default(false)
+  paidDate                                       DateTime?
   dueDate  DateTime // Tanggal jatuh tempo
-  userId   Int
-  paymentId Int?    @unique // Link ke Payment
+  userId                                         Int
+  paymentId                                      Int?       @unique // Link ke Payment
 
-  // Relations
-  user     User     @relation(fields: [userId], references: [id])
-  payment  Payment? @relation("PaymentMemberPayment", fields: [paymentId], references: [id])
+  //                                             Relations
+  user                                           User      @relation(fields: [userId], references: [id])
+  payment                                        Payment?  @relation("PaymentMemberPayment", fields: [paymentId], references: [id])
 
   @@unique([userId, month, year])
   @@map("member_payments")
@@ -166,19 +171,19 @@ model MemberPayment {
 
 // Ringkasan Keuangan Bulanan
 model FinancialSummary {
-  id           Int      @id @default(autoincrement())
-  month        Int
-  year         Int
-  totalIncome  Float    @default(0)
-  totalExpense Float    @default(0)
-  balance      Float    @default(0)
-  createdBy    Int
+  id            Int       @id @default(autoincrement())
+  month         Int
+  year          Int
+  totalIncome   Float     @default(0)
+  totalExpense  Float     @default(0)
+  balance       Float     @default(0)
+  createdBy     Int
 
-  // Relations
-  createdByUser User    @relation(fields: [createdBy], references: [id])
+  //            Relations
+  createdByUser User     @relation(fields: [createdBy], references: [id])
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([month, year])
   @@map("financial_summaries")
@@ -200,20 +205,20 @@ model TransactionCategory {
 
 // Laporan Keuangan
 model FinancialReport {
-  id          Int         @id @default(autoincrement())
-  title       String
-  description String?
-  periodStart DateTime
-  periodEnd   DateTime
-  reportType  ReportType
+  id                                                      Int         @id @default(autoincrement())
+  title                                                   String
+  description                                             String?
+  periodStart                                             DateTime
+  periodEnd                                               DateTime
+  reportType                                              ReportType
   fileUrl     String?     // URL file laporan (PDF/Excel)
-  createdBy   Int
+  createdBy                                               Int
 
-  // Relations
-  createdByUser User      @relation(fields: [createdBy], references: [id])
+  //                                                      Relations
+  createdByUser                                           User       @relation(fields: [createdBy], references: [id])
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt                                               DateTime    @default(now())
+  updatedAt                                               DateTime    @updatedAt
 
   @@map("financial_reports")
 }
@@ -228,23 +233,23 @@ enum ReportType {
 // === BILL SYSTEM (NEW) ===
 
 model Bill {
-  id          String     @id @default(cuid())
-  title       String
-  description String
-  amount      Float
-  dueDate     DateTime
-  status      BillStatus @default(PENDING)
-  userId      Int
-  createdBy   Int
-  paymentId   Int?       @unique // Link ke Payment ketika sudah dibayar
-  paidAt      DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id            String      @id @default(cuid())
+  title         String
+  description   String
+  amount        Float
+  dueDate       DateTime
+  status        BillStatus  @default(PENDING)
+  userId        Int
+  createdBy     Int
+  paymentId     Int?        @unique // Link ke Payment ketika sudah dibayar
+  paidAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  // Relations
-  user        User       @relation("UserBills", fields: [userId], references: [id], onDelete: Cascade)
-  createdByUser User     @relation("CreatedBills", fields: [createdBy], references: [id], onDelete: Cascade)
-  payment     Payment?   @relation("PaymentBill", fields: [paymentId], references: [id])
+  //            Relations
+  user          User       @relation("UserBills", fields: [userId], references: [id], onDelete: Cascade)
+  createdByUser User       @relation("CreatedBills", fields: [createdBy], references: [id], onDelete: Cascade)
+  payment       Payment?   @relation("PaymentBill", fields: [paymentId], references: [id])
 
   @@map("bills")
 }
@@ -273,17 +278,18 @@ model Announcement {
 }
 
 model Report {
-  id          Int       @id @default(autoincrement())
-  title       String
-  description String
-  category    String
-  imageUrl    String?
-  status      String    @default("pending")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  userId      Int
+  id                                                                 Int       @id @default(autoincrement())
+  title                                                              String
+  description                                                        String
+  category                                                           String
+  imageUrl                                                           String?
+  imagePublicId String?  // Tambahkan ini untuk Cloudinary public ID
+  status                                                             String    @default("pending")
+  createdAt                                                          DateTime  @default(now())
+  updatedAt                                                          DateTime  @updatedAt
+  userId                                                             Int
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                                                               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Emergency {

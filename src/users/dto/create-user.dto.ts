@@ -200,6 +200,9 @@ export class VerifyKKDto {
     @IsString()
     @IsOptional()
     notes?: string;
+    isApproved: any;
+    rejectionReason: boolean;
+  static isApproved: any;
 }
 
 export class RejectKKDto {
