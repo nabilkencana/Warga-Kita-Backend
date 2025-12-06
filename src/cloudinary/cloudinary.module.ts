@@ -1,9 +1,10 @@
 // src/cloudinary/cloudinary.module.ts
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { CloudinaryProvider } from './cloudinary.provider';
 import { CloudinaryService } from './cloudinary.service';
 import { ConfigModule } from '@nestjs/config';
 
+@Global()
 @Module({
   imports: [ConfigModule], // 🟢 IMPORT ConfigModule untuk akses environment variables
   providers: [CloudinaryProvider, CloudinaryService],

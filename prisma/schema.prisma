@@ -42,11 +42,16 @@ model User {
   updatedAt                                                             DateTime            @updatedAt
 
   // KK Verification Fields
-  kkFile              String?  // URL ke Cloudinary
-  kkFilePublicId      String?  // Public ID di Cloudinary
-  kkRejectionReason   String?  // Alasan penolakan
+  kkFile                                                                String?  // URL ke Cloudinary
+  kkFilePublicId                                                        String?  // Public ID di Cloudinary
+  kkRejectionReason                                                     String?  // Alasan penolakan
   kkVerifiedAt                                                          DateTime?
-  kkVerifiedBy        String?  // ID atau nama admin yang memverifikasi
+  kkVerifiedBy                                                          String?  // ID atau nama admin yang memverifikasi
+
+  // Profile fields baru
+  profilePicture                                                        String?
+  profilePicturePublicId                                                String?
+  newEmailRequested                                                     String?  // Untuk email change verification
 
   // Relations - Existing
   announcements                                                         Announcement[]
@@ -77,9 +82,29 @@ enum UserRole {
   USER
 }
 
-// === DANA COMMUNITY MODELS ===
+// === PROFILE ACTIVITY LOG ===
+model ActivityLog {
+  id          Int       @id @default(autoincrement())
+  action      String
+  description String?
+  timestamp   DateTime  @default(now())
+  ipAddress   String?
+  userAgent   String?
+  userId      Int       // Ubah dari adminId ke userId untuk profile activity
+  createAt    DateTime @default(now())
+  updateAt    DateTime @default(now())
 
-// Transaksi (Pemasukan/Pengeluaran)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+// === DANA COMMUNITY MODELS ===
+// ... (sisanya tetap sama seperti sebelumnya) ...
+
 model Transaction {
   id                                                                    Int              @id @default(autoincrement())
   amount                                                                Float
@@ -108,7 +133,6 @@ enum TransactionType {
   EXPENSE
 }
 
-// Pembayaran (QRIS, Mobile Banking, Cash)
 model Payment {
   id                                                                  Int             @id @default(autoincrement())
   amount                                                              Float
@@ -117,10 +141,10 @@ model Payment {
   description                                                         String
   dueDate                                                             DateTime
   paidDate                                                            DateTime?
-  qrCode        String?        // QR Code data untuk QRIS
-  bankReference String?        // Referensi bank untuk mobile banking
-  receiptImage  String?        // Bukti transfer/tanda terima
-  userId        Int            // User yang melakukan pembayaran
+  qrCode                                                              String?        // QR Code data untuk QRIS
+  bankReference                                                       String?        // Referensi bank untuk mobile banking
+  receiptImage                                                        String?        // Bukti transfer/tanda terima
+  userId                                                              Int            // User yang melakukan pembayaran
 
   //                                                                  Relations
   user                                                                User           @relation("UserPayments", fields: [userId], references: [id])
@@ -149,27 +173,25 @@ enum PaymentStatus {
   FAILED
 }
 
-// Status Pembayaran Member per Bulan
 model MemberPayment {
   id                                             Int        @id @default(autoincrement())
-  month    Int      // 1-12
-  year     Int      // 2024, 2025, etc
-  amount   Float    // Jumlah yang harus dibayar
+  month                                          Int        // 1-12
+  year                                           Int        // 2024, 2025, etc
+  amount                                         Float      // Jumlah yang harus dibayar
   isPaid                                         Boolean    @default(false)
   paidDate                                       DateTime?
-  dueDate  DateTime // Tanggal jatuh tempo
+  dueDate                                        DateTime   // Tanggal jatuh tempo
   userId                                         Int
   paymentId                                      Int?       @unique // Link ke Payment
 
   //                                             Relations
-  user                                           User      @relation(fields: [userId], references: [id])
-  payment                                        Payment?  @relation("PaymentMemberPayment", fields: [paymentId], references: [id])
+  user                                           User       @relation(fields: [userId], references: [id])
+  payment                                        Payment?   @relation("PaymentMemberPayment", fields: [paymentId], references: [id])
 
   @@unique([userId, month, year])
   @@map("member_payments")
 }
 
-// Ringkasan Keuangan Bulanan
 model FinancialSummary {
   id            Int       @id @default(autoincrement())
   month         Int
@@ -180,7 +202,7 @@ model FinancialSummary {
   createdBy     Int
 
   //            Relations
-  createdByUser User     @relation(fields: [createdBy], references: [id])
+  createdByUser User      @relation(fields: [createdBy], references: [id])
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -189,7 +211,6 @@ model FinancialSummary {
   @@map("financial_summaries")
 }
 
-// Kategori Transaksi
 model TransactionCategory {
   id          Int              @id @default(autoincrement())
   name        String           @unique
@@ -203,7 +224,6 @@ model TransactionCategory {
   @@map("transaction_categories")
 }
 
-// Laporan Keuangan
 model FinancialReport {
   id                                                      Int         @id @default(autoincrement())
   title                                                   String
@@ -211,11 +231,11 @@ model FinancialReport {
   periodStart                                             DateTime
   periodEnd                                               DateTime
   reportType                                              ReportType
-  fileUrl     String?     // URL file laporan (PDF/Excel)
+  fileUrl                                                 String?     // URL file laporan (PDF/Excel)
   createdBy                                               Int
 
   //                                                      Relations
-  createdByUser                                           User       @relation(fields: [createdBy], references: [id])
+  createdByUser                                           User        @relation(fields: [createdBy], references: [id])
 
   createdAt                                               DateTime    @default(now())
   updatedAt                                               DateTime    @updatedAt
@@ -247,9 +267,9 @@ model Bill {
   updatedAt     DateTime    @updatedAt
 
   //            Relations
-  user          User       @relation("UserBills", fields: [userId], references: [id], onDelete: Cascade)
-  createdByUser User       @relation("CreatedBills", fields: [createdBy], references: [id], onDelete: Cascade)
-  payment       Payment?   @relation("PaymentBill", fields: [paymentId], references: [id])
+  user          User        @relation("UserBills", fields: [userId], references: [id], onDelete: Cascade)
+  createdByUser User        @relation("CreatedBills", fields: [createdBy], references: [id], onDelete: Cascade)
+  payment       Payment?    @relation("PaymentBill", fields: [paymentId], references: [id])
 
   @@map("bills")
 }
@@ -274,22 +294,22 @@ model Announcement {
   updatedAt      DateTime  @updatedAt
   createdBy      Int
 
-  admin          User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  admin          User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 }
 
 model Report {
-  id                                                                 Int       @id @default(autoincrement())
-  title                                                              String
-  description                                                        String
-  category                                                           String
-  imageUrl                                                           String?
-  imagePublicId String?  // Tambahkan ini untuk Cloudinary public ID
-  status                                                             String    @default("pending")
-  createdAt                                                          DateTime  @default(now())
-  updatedAt                                                          DateTime  @updatedAt
-  userId                                                             Int
+  id                                                                  Int       @id @default(autoincrement())
+  title                                                               String
+  description                                                         String
+  category                                                            String
+  imageUrl                                                            String?
+  imagePublicId                                                       String?   // Tambahkan ini untuk Cloudinary public ID
+  status                                                              String    @default("pending")
+  createdAt                                                           DateTime  @default(now())
+  updatedAt                                                           DateTime  @updatedAt
+  userId                                                              Int
 
-  user                                                               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                                                                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Emergency {
@@ -307,7 +327,7 @@ model Emergency {
   userId         Int?
 
   volunteers     Volunteer[]
-  user           User?       @relation(fields: [userId], references: [id])
+  user           User?        @relation(fields: [userId], references: [id])
 
   @@map("emergencies")
 }
@@ -322,8 +342,8 @@ model Volunteer {
   status      String     @default("REGISTERED")
   createdAt   DateTime   @default(now())
 
-  emergency   Emergency @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
-  user        User?     @relation(fields: [userId], references: [id])
+  emergency   Emergency  @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  user        User?      @relation(fields: [userId], references: [id])
 
   @@map("volunteers")
 }
@@ -356,21 +376,7 @@ model AdminDashboard {
   date                   DateTime  @default(now())
   adminId                Int
 
-  admin                  User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin                  User      @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@map("admin_dashboards")
-}
-
-model ActivityLog {
-  id          Int       @id @default(autoincrement())
-  action      String
-  description String?
-  timestamp   DateTime  @default(now())
-  ipAddress   String?
-  userAgent   String?
-  adminId     Int
-
-  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
-
-  @@map("activity_logs")
 }

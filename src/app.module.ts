@@ -12,10 +12,11 @@ import { AdminModule } from './admin/admin.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { BillsModule } from './bills/bills.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [UsersModule, AuthModule, PrismaModule,
-    ConfigModule.forRoot({ isGlobal: true }), AnnouncementsModule, ReportsModule, EmergencyModule, AdminModule, TransactionsModule, BillsModule, CloudinaryModule// 🔥 aktifkan .env
+    ConfigModule.forRoot({ isGlobal: true }), AnnouncementsModule, ReportsModule, EmergencyModule, AdminModule, TransactionsModule, BillsModule, CloudinaryModule, ProfileModule// 🔥 aktifkan .env
   ],
   controllers: [AppController],
   providers: [AppService],

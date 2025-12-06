@@ -25,7 +25,10 @@ export class ReportsService {
 
             // Handle file upload ke Cloudinary jika ada
             if (data.imageFile) {
-                const validation = this.cloudinaryService.validateFile(data.imageFile);
+                const validation = this.cloudinaryService.validateFile(data.imageFile, {
+                    maxSize: 10 * 1024 * 1024, // 10MB
+                    allowedTypes: ['image/jpeg', 'image/png', 'image/jpg'],
+                });
                 if (!validation.isValid) {
                     throw new BadRequestException(validation.error);
                 }
@@ -52,6 +55,7 @@ export class ReportsService {
                 })();
                 cloudinaryResult = {
                     url: data.imageUrl,
+                    secure_url: data.imageUrl,
                     public_id: data.imagePublicId || `reports/${Date.now()}`,
                     format: inferredFormat,
                     bytes: 0,
@@ -208,7 +212,10 @@ export class ReportsService {
 
             // Handle file upload jika ada file baru
             if (data.imageFile) {
-                const validation = this.cloudinaryService.validateFile(data.imageFile);
+                const validation = this.cloudinaryService.validateFile(data.imageFile, {
+                    maxSize: 10 * 1024 * 1024, // 10MB
+                    allowedTypes: ['image/jpeg', 'image/png', 'image/jpg'],
+                });
                 if (!validation.isValid) {
                     throw new BadRequestException(validation.error);
                 }

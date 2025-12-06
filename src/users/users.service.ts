@@ -90,7 +90,10 @@ export class UsersService {
       // 🟢 Validasi file jika ada
       let cloudinaryResult: any = null;
       if (file) {
-        const validation = this.cloudinaryService.validateFile(file);
+        const validation = this.cloudinaryService.validateFile(file, {
+          maxSize: 10 * 1024 * 1024, // 10MB
+          allowedTypes: ['image/jpeg', 'image/png', 'image/jpg'],
+        });
         if (!validation.isValid) {
           throw new BadRequestException(validation.error);
         }
@@ -227,7 +230,10 @@ export class UsersService {
       // 🟢 Handle file upload ke Cloudinary jika ada file baru
       let cloudinaryResult: CloudinaryUploadResult | null = null;
       if (file) {
-        const validation = this.cloudinaryService.validateFile(file);
+        const validation = this.cloudinaryService.validateFile(file, {
+          maxSize: 10 * 1024 * 1024, // 10MB
+          allowedTypes: ['image/jpeg', 'image/png', 'image/jpg'],
+        });
         if (!validation.isValid) {
           throw new BadRequestException(validation.error);
         }
@@ -746,7 +752,10 @@ export class UsersService {
       }
 
       // Validasi file
-      const validation = this.cloudinaryService.validateFile(file);
+      const validation = this.cloudinaryService.validateFile(file, {
+        maxSize: 10 * 1024 * 1024, // 10MB
+        allowedTypes: ['image/jpeg', 'image/png', 'image/jpg'],
+      });
       if (!validation.isValid) {
         throw new BadRequestException(validation.error);
       }
