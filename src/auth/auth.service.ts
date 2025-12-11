@@ -5,13 +5,13 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { OAuth2Client } from 'google-auth-library';
 import { UserRole } from '@prisma/client';
-import { Resend } from 'resend'; // Import Resend[citation:2][citation:6]
+import { Resend } from 'resend';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private googleClient: OAuth2Client;
-  private resend: Resend; // Instance Resend
+  private resend: Resend;
 
   constructor(
     private readonly usersService: UsersService,
@@ -24,8 +24,28 @@ export class AuthService {
       this.config.get('GOOGLE_CLIENT_SECRET')
     );
 
-    // Inisialisasi Resend client
-    this.resend = new Resend(this.config.get('RESEND_API_KEY'));
+    // Inisialisasi Resend dengan validasi API key
+    const resendApiKey = this.config.get('RESEND_API_KEY');
+    if (!resendApiKey) {
+      this.logger.error('RESEND_API_KEY is not configured!');
+      throw new Error('RESEND_API_KEY is required');
+    }
+    this.resend = new Resend(resendApiKey);
+  }
+
+  private validateAndFormatFromField(): string {
+    const fromEmail = this.config.get('RESEND_FROM_EMAIL');
+    const fromName = this.config.get('RESEND_FROM_NAME', 'WargaApp');
+
+    // Validasi format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(fromEmail)) {
+      this.logger.error(`Invalid email format in RESEND_FROM_EMAIL: ${fromEmail}`);
+      throw new InternalServerErrorException('Invalid email configuration');
+    }
+
+    // Return format yang valid untuk Resend
+    return `${fromName.trim()} <${fromEmail.trim()}>`;
   }
 
   async sendOtp(email: string) {
@@ -55,9 +75,13 @@ export class AuthService {
       this.logger.log(`OTP generated for ${email}: ${otp}`);
 
       try {
+        // Gunakan method helper untuk format yang benar
+        const fromField = this.validateAndFormatFromField();
+
+        this.logger.log(`Sending OTP email with from field: ${fromField}`);
         // Menggunakan Resend untuk mengirim email[citation:2][citation:6]
         const { data, error } = await this.resend.emails.send({
-          from: `${this.config.get('RESEND_FROM_NAME')} <${this.config.get('RESEND_FROM_EMAIL')}>`,
+          from: fromField,
           to: email,
           subject: '🔐 Kode OTP untuk Login - WargaApp',
           html: `
@@ -107,15 +131,33 @@ export class AuthService {
         });
 
         if (error) {
-          this.logger.error(`Resend API error for ${email}:`, error);
+          // Log detail error dari Resend
+          this.logger.error(`Resend API Error Details:`, {
+            statusCode: error.statusCode,
+            name: error.name,
+            message: error.message
+          });
+
+          // Berikan pesan error yang lebih spesifik
+          if (error.statusCode === 422) {
+            throw new InternalServerErrorException('Format email pengirim tidak valid. Periksa konfigurasi RESEND_FROM_EMAIL.');
+          } else if (error.statusCode === 403) {
+            throw new InternalServerErrorException('API key tidak valid atau expired. Periksa RESEND_API_KEY.');
+          } else if (error.statusCode === 429) {
+            throw new InternalServerErrorException('Limit email harian terlampaui. Coba lagi besok.');
+          }
+
           throw new InternalServerErrorException('Gagal mengirim OTP via email');
         }
 
-        this.logger.log(`OTP email sent successfully to: ${email}. Email ID: ${data?.id}`);
-        return { message: 'OTP berhasil dikirim ke email, Cek folder spam' };
+        this.logger.log(`OTP email sent successfully. Email ID: ${data.id}`);
+        return {
+          message: 'OTP berhasil dikirim ke email',
+          emailId: data.id
+        };
 
       } catch (emailError) {
-        this.logger.error(`Failed to send email to ${email}:`, emailError);
+        this.logger.error(`Email sending failed for ${email}:`, emailError);
         throw new InternalServerErrorException('Gagal mengirim OTP via email');
       }
 
