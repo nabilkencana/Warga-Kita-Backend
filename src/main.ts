@@ -12,3 +12,5 @@ export async function bootstrap() {
   await app.listen(port);
 }
 bootstrap();
+
+export const maxDuration=100;
