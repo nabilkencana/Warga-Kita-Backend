@@ -88,6 +88,10 @@ export class UpdateProfileDto {
     @IsString()
     @MaxLength(500)
     bio?: string;
+  static namaLengkap: any;
+  static email: any;
+  static nomorTelepon: any;
+  static alamat: any;
 }
 
 export class EmailChangeRequestDto {

@@ -18,8 +18,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     async validate(payload: any) {
         console.log('🔐 JWT Playload:' , payload)
         return {
-            id : payload.id,
-            userId: payload.sub,
+            userId: payload.sub || payload.id, // Prioritaskan sub sebagai userId
+            id: payload.sub || payload.id,     // Juga simpan sebagai id untuk kompatibilitas
             email: payload.email,
             name: payload.name,
             role : payload.role

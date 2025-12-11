@@ -10,68 +10,104 @@ export class ProfileService {
     private cloudinaryService: CloudinaryService,
   ) { }
 
-  // 🟢 Get user profile
+  // 🟢 Get user profile - TAMBAHKAN ERROR HANDLING
   async getUserProfile(userId: number) {
     console.log(`🔍 Getting profile for userId: ${userId}`);
 
-    if (!userId || isNaN(userId)) {
-      throw new BadRequestException('User ID tidak valid');
+    try {
+      if (!userId || isNaN(userId)) {
+        throw new BadRequestException('User ID tidak valid');
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: Number(userId)
+        },
+        select: {
+          id: true,
+          namaLengkap: true,
+          email: true,
+          nik: true,
+          tanggalLahir: true,
+          tempatLahir: true,
+          nomorTelepon: true,
+          instagram: true,
+          facebook: true,
+          alamat: true,
+          kota: true,
+          negara: true,
+          kodePos: true,
+          rtRw: true,
+          role: true,
+          isVerified: true,
+          bio: true,
+          fotoProfil: true,
+
+          // KK Verification Fields
+          kkFile: true,
+          kkFilePublicId: true,
+          kkRejectionReason: true,
+          kkVerifiedAt: true,
+          kkVerifiedBy: true,
+
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      const significantChanges: string[] = [];
+
+      if (UpdateProfileDto.namaLengkap && UpdateProfileDto.namaLengkap ) {
+        significantChanges.push('nama lengkap');
+      }
+
+      if (UpdateProfileDto.email && UpdateProfileDto.email) {
+        significantChanges.push('email');
+      }
+
+      if (UpdateProfileDto.nomorTelepon && UpdateProfileDto.nomorTelepon) {
+        significantChanges.push('nomor telepon');
+      }
+
+      if (UpdateProfileDto.alamat && UpdateProfileDto.alamat ) {
+        significantChanges.push('alamat');
+      }
+
+      if (!user) {
+        throw new NotFoundException(`User dengan ID ${userId} tidak ditemukan`);
+      }
+
+      // Pastikan semua field yang diperlukan ada
+      const safeUser = {
+        ...user,
+        namaLengkap: user.namaLengkap || '',
+        email: user.email || '',
+        nik: user.nik || '',
+        nomorTelepon: user.nomorTelepon || '',
+        alamat: user.alamat || '',
+        kota: user.kota || '',
+        kodePos: user.kodePos || '',
+        rtRw: user.rtRw || '',
+        bio: user.bio || '',
+      };
+
+      // Hitung usia dari tanggal lahir
+      const usia = user.tanggalLahir
+        ? this.calculateAge(user.tanggalLahir)
+        : null;
+
+      // Tentukan status verifikasi KK
+      const kkVerificationStatus = this.determineKKVerificationStatus(safeUser);
+
+      return {
+        ...safeUser,
+        usia,
+        kkVerificationStatus,
+        hasKKDocument: !!user.kkFile,
+      };
+    } catch (error) {
+      console.error('❌ Error getting user profile:', error);
+      throw new BadRequestException('Gagal mengambil data profil: ' + error.message);
     }
-
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: Number(userId) // Pastikan ini adalah number
-      },
-      select: {
-        id: true,
-        namaLengkap: true,
-        email: true,
-        nik: true,
-        tanggalLahir: true,
-        tempatLahir: true,
-        nomorTelepon: true,
-        instagram: true,
-        facebook: true,
-        alamat: true,
-        kota: true,
-        negara: true,
-        kodePos: true,
-        rtRw: true,
-        role: true,
-        isVerified: true,
-        bio: true,
-        fotoProfil: true,
-
-        // KK Verification Fields
-        kkFile: true,
-        kkFilePublicId: true,
-        kkRejectionReason: true,
-        kkVerifiedAt: true,
-        kkVerifiedBy: true,
-
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException(`User dengan ID ${userId} tidak ditemukan`);
-    }
-
-    // Hitung usia dari tanggal lahir
-    const usia = user.tanggalLahir
-      ? this.calculateAge(user.tanggalLahir)
-      : null;
-
-    // Tentukan status verifikasi KK
-    const kkVerificationStatus = this.determineKKVerificationStatus(user);
-
-    return {
-      ...user,
-      usia,
-      kkVerificationStatus,
-      hasKKDocument: !!user.kkFile,
-    };
   }
 
   // 🟢 Get KK verification status (public method)
@@ -307,6 +343,7 @@ export class ProfileService {
         select: {
           id: true,
           namaLengkap: true,
+          email: true,
           fotoProfil: true,
         },
       });
@@ -315,15 +352,44 @@ export class ProfileService {
         throw new NotFoundException(`User dengan ID ${userId} tidak ditemukan`);
       }
 
-      // Validasi file
-      const validation = this.cloudinaryService.validateFile(file, {
-        maxSize: 5 * 1024 * 1024, // 5MB
-        allowedTypes: ['image/jpeg', 'image/png', 'image/jpg'],
-      });
-
-      if (!validation.isValid) {
-        throw new BadRequestException(validation.error);
+      // Validasi keberadaan file
+      if (!file) {
+        throw new BadRequestException('Tidak ada file yang diupload');
       }
+
+      // Validasi ukuran file (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        throw new BadRequestException(`Ukuran file maksimal ${maxSize / (1024 * 1024)}MB`);
+      }
+
+      // Validasi tipe file - PERBAIKI INI
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+
+      // Juga terima MIME type dengan capital letters
+      const fileMimeType = file.mimetype.toLowerCase();
+      const validMimeTypes = allowedMimeTypes.map(m => m.toLowerCase());
+
+      if (!validMimeTypes.includes(fileMimeType)) {
+        throw new BadRequestException(
+          `Format file tidak didukung. Gunakan: ${allowedMimeTypes.join(', ')}`
+        );
+      }
+
+      // Validasi ekstensi file
+      const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+      const originalName = file.originalname || '';
+      const fileExtension = originalName.toLowerCase().slice(
+        originalName.lastIndexOf('.')
+      );
+
+      if (fileExtension && !allowedExtensions.includes(fileExtension)) {
+        throw new BadRequestException(
+          `Ekstensi file tidak didukung. Gunakan: ${allowedExtensions.join(', ')}`
+        );
+      }
+
+      console.log(`✅ File validated: ${originalName}, MIME: ${file.mimetype}, Size: ${file.size} bytes`);
 
       // Hapus foto lama jika ada
       if (user.fotoProfil) {
@@ -359,6 +425,7 @@ export class ProfileService {
         select: {
           id: true,
           namaLengkap: true,
+          email: true,
           fotoProfil: true,
           updatedAt: true,
         },
@@ -753,6 +820,499 @@ export class ProfileService {
       },
     };
   }
+
+  // TAMBAHKAN DI BAGIAN SERVICE
+
+  // 🟢 Upload KK Document
+  async uploadKKDocument(userId: number, file: Express.Multer.File) {
+    console.log(`📄 Uploading KK document for userId: ${userId}`);
+
+    try {
+      // Validasi userId
+      if (!userId || isNaN(userId)) {
+        throw new BadRequestException('User ID tidak valid');
+      }
+
+      const numericUserId = Number(userId);
+
+      // Cek apakah user ada
+      const user = await this.prisma.user.findUnique({
+        where: { id: numericUserId },
+        select: {
+          id: true,
+          namaLengkap: true,
+          email: true,
+          kkFile: true,
+          kkFilePublicId: true,
+          kkRejectionReason: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User dengan ID ${userId} tidak ditemukan`);
+      }
+
+      // Validasi file
+      if (!file) {
+        throw new BadRequestException('Tidak ada file yang diupload');
+      }
+
+      // Validasi ukuran file (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        throw new BadRequestException(`Ukuran file maksimal ${maxSize / (1024 * 1024)}MB`);
+      }
+
+      // Validasi tipe file
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+      const fileMimeType = file.mimetype.toLowerCase();
+      const validMimeTypes = allowedMimeTypes.map(m => m.toLowerCase());
+
+      if (!validMimeTypes.includes(fileMimeType)) {
+        throw new BadRequestException(
+          `Format file tidak didukung. Gunakan: ${allowedMimeTypes.join(', ')}`
+        );
+      }
+
+      console.log(`✅ KK File validated: ${file.originalname}, MIME: ${file.mimetype}, Size: ${file.size} bytes`);
+
+      // Hapus file KK lama jika ada
+      if (user.kkFile || user.kkFilePublicId) {
+        try {
+          if (user.kkFilePublicId) {
+            await this.cloudinaryService.deleteFile(user.kkFilePublicId);
+            console.log('🗑️ KK file lama dihapus dari Cloudinary');
+          }
+        } catch (error) {
+          console.warn('⚠️ Tidak dapat menghapus KK file lama:', error.message);
+        }
+      }
+
+      // Upload KK file ke Cloudinary
+      const cloudinaryResult = await this.cloudinaryService.uploadFile(
+        file,
+        'kk_files'
+      );
+
+      console.log('✅ KK file diupload ke Cloudinary:', cloudinaryResult.url);
+
+      // Update user dengan KK file baru
+      const updatedUser = await this.prisma.user.update({
+        where: { id: numericUserId },
+        data: {
+          kkFile: cloudinaryResult.url,
+          kkFilePublicId: cloudinaryResult.public_id,
+          kkRejectionReason: null, // Reset rejection reason jika ada
+          isVerified: false, // Reset status verifikasi
+          kkVerifiedAt: null,
+          kkVerifiedBy: null,
+        },
+        select: {
+          id: true,
+          namaLengkap: true,
+          email: true,
+          kkFile: true,
+          kkFilePublicId: true,
+          kkRejectionReason: true,
+          isVerified: true,
+          kkVerifiedAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return {
+        message: 'Dokumen KK berhasil diupload',
+        user: updatedUser,
+        kkVerificationStatus: this.determineKKVerificationStatus(updatedUser),
+      };
+    } catch (error) {
+      console.error('❌ Error uploading KK document:', error);
+
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new BadRequestException('Gagal mengupload dokumen KK: ' + error.message);
+    }
+  }
+
+  // 🟢 Delete KK Document
+  async deleteKKDocument(userId: number) {
+    console.log(`🗑️ Deleting KK document for userId: ${userId}`);
+
+    try {
+      // Validasi userId
+      if (!userId || isNaN(userId)) {
+        throw new BadRequestException('User ID tidak valid');
+      }
+
+      const numericUserId = Number(userId);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: numericUserId },
+        select: {
+          id: true,
+          namaLengkap: true,
+          kkFile: true,
+          kkFilePublicId: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User dengan ID ${userId} tidak ditemukan`);
+      }
+
+      if (!user.kkFile) {
+        throw new BadRequestException('Tidak ada dokumen KK yang bisa dihapus');
+      }
+
+      // Hapus dari Cloudinary
+      if (user.kkFilePublicId) {
+        try {
+          await this.cloudinaryService.deleteFile(user.kkFilePublicId);
+          console.log('✅ KK file dihapus dari Cloudinary');
+        } catch (error) {
+          console.warn('⚠️ Gagal menghapus KK file dari Cloudinary:', error.message);
+        }
+      }
+
+      // Update database
+      const updatedUser = await this.prisma.user.update({
+        where: { id: numericUserId },
+        data: {
+          kkFile: null,
+          kkFilePublicId: null,
+          kkRejectionReason: null,
+          isVerified: false,
+          kkVerifiedAt: null,
+          kkVerifiedBy: null,
+        },
+        select: {
+          id: true,
+          namaLengkap: true,
+          kkFile: true,
+          isVerified: true,
+          updatedAt: true,
+        },
+      });
+
+      return {
+        message: 'Dokumen KK berhasil dihapus',
+        user: updatedUser,
+        kkVerificationStatus: this.determineKKVerificationStatus(updatedUser),
+      };
+    } catch (error) {
+      console.error('❌ Error deleting KK document:', error);
+
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new BadRequestException('Gagal menghapus dokumen KK: ' + error.message);
+    }
+  }
+
+  // 🟢 Get KK Document (public URL)
+  async getKKDocument(userId: number) {
+    console.log(`📄 Service: Getting KK document for userId: ${userId}`);
+
+    try {
+      // Validasi userId
+      if (!userId || isNaN(userId)) {
+        console.error('❌ Invalid userId:', userId);
+        throw new BadRequestException('User ID tidak valid: ' + userId);
+      }
+
+      const numericUserId = Number(userId);
+
+      // Debug: Cek apakah user ada
+      const userExists = await this.prisma.user.findUnique({
+        where: { id: numericUserId },
+        select: { id: true }
+      });
+
+      console.log('🔍 User exists check:', userExists);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: numericUserId },
+        select: {
+          id: true,
+          namaLengkap: true,
+          kkFile: true,
+          kkFilePublicId: true,
+          isVerified: true,
+          kkRejectionReason: true,
+          kkVerifiedAt: true,
+          kkVerifiedBy: true,
+        },
+      });
+
+      if (!user) {
+        console.error('❌ User not found with ID:', numericUserId);
+        throw new NotFoundException(`User dengan ID ${numericUserId} tidak ditemukan`);
+      }
+
+      if (!user.kkFile) {
+        console.log('⚠️ No KK file for user:', numericUserId);
+        return {
+          success: false,
+          message: 'Dokumen KK belum diupload',
+          data: {
+            hasKKDocument: false,
+            kkFile: null,
+            kkVerificationStatus: 'not_uploaded'
+          }
+        };
+      }
+
+      const kkVerificationStatus = this.determineKKVerificationStatus(user);
+
+      console.log('✅ KK document found:', {
+        userId: numericUserId,
+        hasFile: !!user.kkFile,
+        status: kkVerificationStatus
+      });
+
+      return {
+        success: true,
+        message: 'Dokumen KK ditemukan',
+        data: {
+          hasKKDocument: true,
+          kkFile: user.kkFile,
+          kkVerificationStatus: kkVerificationStatus,
+          verificationInfo: {
+            isVerified: user.isVerified,
+            rejectionReason: user.kkRejectionReason,
+            verifiedAt: user.kkVerifiedAt,
+            verifiedBy: user.kkVerifiedBy,
+          },
+        },
+      };
+    } catch (error) {
+      console.error('❌ Service error getting KK document:', error);
+
+      // Re-throw error yang sudah berupa HttpException
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+
+      // Untuk error lain, wrap dengan BadRequestException
+      throw new BadRequestException('Gagal mengambil dokumen KK: ' + error.message);
+    }
+  }
+
+  // 🟢 Get KK verification requests (admin)
+  async getKKVerificationRequests(page: number, limit: number, status?: string) {
+    console.log(`🔍 Getting KK verification requests - Page: ${page}, Limit: ${limit}, Status: ${status}`);
+
+    try {
+      const skip = (page - 1) * limit;
+
+      // Build where clause based on status
+      const whereClause: any = {
+        OR: [
+          { kkFile: { not: null } },
+          { kkVerifiedAt: { not: null } },
+          { kkRejectionReason: { not: null } }
+        ]
+      };
+
+      if (status) {
+        switch (status.toLowerCase()) {
+          case 'pending':
+          case 'pending_review':
+            whereClause.isVerified = false;
+            whereClause.kkFile = { not: null };
+            whereClause.kkRejectionReason = null;
+            break;
+          case 'verified':
+            whereClause.isVerified = true;
+            whereClause.kkVerifiedAt = { not: null };
+            break;
+          case 'rejected':
+            whereClause.isVerified = false;
+            whereClause.kkRejectionReason = { not: null };
+            break;
+          case 'not_uploaded':
+            whereClause.kkFile = null;
+            break;
+        }
+      }
+
+      // Get users with pagination
+      const [users, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where: whereClause,
+          select: {
+            id: true,
+            namaLengkap: true,
+            email: true,
+            nik: true,
+            nomorTelepon: true,
+            kkFile: true,
+            kkFilePublicId: true,
+            kkRejectionReason: true,
+            isVerified: true,
+            kkVerifiedAt: true,
+            kkVerifiedBy: true,
+            createdAt: true,
+            updatedAt: true,
+            // Admin info if verified
+            verifiedByAdmin: {
+              select: {
+                id: true,
+                namaLengkap: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { updatedAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        this.prisma.user.count({ where: whereClause }),
+      ]);
+
+      // Determine verification status for each user
+      const usersWithStatus = users.map(user => ({
+        ...user,
+        kkVerificationStatus: this.determineKKVerificationStatus(user),
+        hasKKDocument: !!user.kkFile,
+      }));
+
+      return {
+        success: true,
+        message: 'KK verification requests retrieved successfully',
+        data: usersWithStatus,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error('❌ Error getting KK verification requests:', error);
+      throw new BadRequestException('Gagal mengambil permintaan verifikasi KK: ' + error.message);
+    }
+  }
+
+
+
+  // 🟢 Verify KK document (admin)
+  async verifyKKDocument(userId: number, verified: boolean, rejectionReason: string | undefined, adminId: number) {
+    console.log(`✅ Verifying KK document - User: ${userId}, Verified: ${verified}, Admin: ${adminId}`);
+
+    try {
+      // Validate inputs
+      if (!userId || isNaN(userId)) {
+        throw new BadRequestException('User ID tidak valid');
+      }
+
+      if (typeof verified !== 'boolean') {
+        throw new BadRequestException('Verified harus berupa boolean');
+      }
+
+      // Check if user exists
+      const user = await this.prisma.user.findUnique({
+        where: { id: Number(userId) },
+        select: {
+          id: true,
+          namaLengkap: true,
+          email: true,
+          kkFile: true,
+          isVerified: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User dengan ID ${userId} tidak ditemukan`);
+      }
+
+      // Check if user has KK document
+      if (!user.kkFile) {
+        throw new BadRequestException('User belum mengupload dokumen KK');
+      }
+
+      // Prepare update data
+      const updateData: any = {
+        isVerified: verified,
+        kkVerifiedAt: new Date(),
+        kkVerifiedBy: adminId,
+      };
+
+      if (verified) {
+        // If verified, clear rejection reason
+        updateData.kkRejectionReason = null;
+      } else {
+        // If rejected, validate rejection reason
+        if (!rejectionReason || rejectionReason.trim().length === 0) {
+          throw new BadRequestException('Alasan penolakan harus diisi jika dokumen ditolak');
+        }
+
+        if (rejectionReason.length < 10) {
+          throw new BadRequestException('Alasan penolakan harus minimal 10 karakter');
+        }
+
+        updateData.kkRejectionReason = rejectionReason.trim();
+      }
+
+      // Update user verification status
+      const updatedUser = await this.prisma.user.update({
+        where: { id: Number(userId) },
+        data: updateData,
+        select: {
+          id: true,
+          namaLengkap: true,
+          email: true,
+          kkFile: true,
+          isVerified: true,
+          kkRejectionReason: true,
+          kkVerifiedAt: true,
+          kkVerifiedBy: true,
+          updatedAt: true,
+        },
+      });
+
+      // Log activity
+      await this.logActivity(
+        userId,
+        verified ? 'KK_VERIFIED' : 'KK_REJECTED',
+        `Dokumen KK ${verified ? 'diverifikasi' : 'ditolak'} oleh admin ID: ${adminId}`,
+      );
+
+      // Also log admin activity
+      await this.logActivity(
+        adminId,
+        verified ? 'VERIFY_KK' : 'REJECT_KK',
+        `${verified ? 'Memverifikasi' : 'Menolak'} dokumen KK user: ${user.namaLengkap} (ID: ${userId})`,
+      );
+
+      return {
+        success: true,
+        message: `Dokumen KK berhasil ${verified ? 'diverifikasi' : 'ditolak'}`,
+        data: {
+          ...updatedUser,
+          kkVerificationStatus: this.determineKKVerificationStatus(updatedUser),
+          adminId,
+        },
+      };
+    } catch (error) {
+      console.error('❌ Error verifying KK document:', error);
+
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+
+      throw new BadRequestException('Gagal memverifikasi dokumen KK: ' + error.message);
+    }
+  }
+
+  
 
   // ========== HELPER METHODS ==========
 
