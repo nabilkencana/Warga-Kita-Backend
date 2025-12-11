@@ -305,7 +305,7 @@ export class AuthService {
       <p><span class="highlight">WargaApp</span> — Platform digital untuk warga</p>
       <p>Email ini dikirim secara otomatis, mohon tidak membalas</p>
       <div class="copyright">
-        &copy; 2024 WargaApp. Hak cipta dilindungi undang-undang.
+        &copy; 2025 WargaApp. Hak cipta dilindungi undang-undang.
       </div>
     </div>
   </div>

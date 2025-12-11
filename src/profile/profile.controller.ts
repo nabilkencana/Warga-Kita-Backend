@@ -144,7 +144,7 @@ export class ProfileController {
       },
     },
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('profilePicture'))
   async uploadProfilePicture(
     @Request() req,
     @UploadedFile() file: Express.Multer.File,
