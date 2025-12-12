@@ -13,74 +13,74 @@ datasource db {
 
 // === USER MANAGEMENT ===
 model User {
-  id                        Int                 @id @default(autoincrement())
-  namaLengkap               String
-  nik                       String              @unique
-  tanggalLahir              DateTime
-  tempatLahir               String
-  email                     String              @unique
-  nomorTelepon              String
-  instagram                 String?
-  facebook                  String?
-  alamat                    String
-  kota                      String
-  negara                    String              @default("Indonesia")
-  kodePos                   String
-  rtRw                      String
-  role                      UserRole            @default(USER)
-  fotoProfil                String?
-  bio                       String?
-  isVerified                Boolean             @default(false)
-  twoFactorEnabled          Boolean             @default(false)
-  twoFactorSecret           String?
-  language                  String              @default("id")
-  biometricData             String?
-  otpCode                   String?
-  otpExpire                 DateTime?
-  isActive                  Boolean             @default(true)
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
+  id                                                                           Int                 @id @default(autoincrement())
+  namaLengkap                                                                  String
+  nik                                                                          String              @unique
+  tanggalLahir                                                                 DateTime
+  tempatLahir                                                                  String
+  email                                                                        String              @unique
+  nomorTelepon                                                                 String
+  instagram                                                                    String?
+  facebook                                                                     String?
+  alamat                                                                       String
+  kota                                                                         String
+  negara                                                                       String              @default("Indonesia")
+  kodePos                                                                      String
+  rtRw                                                                         String
+  role                                                                         UserRole            @default(USER)
+  fotoProfil                                                                   String?
+  bio                                                                          String?
+  isVerified                                                                   Boolean             @default(false)
+  twoFactorEnabled                                                             Boolean             @default(false)
+  twoFactorSecret                                                              String?
+  language                                                                     String              @default("id")
+  biometricData                                                                String?
+  otpCode                                                                      String?
+  otpExpire                                                                    DateTime?
+  isActive                                                                     Boolean             @default(true)
+  createdAt                                                                    DateTime            @default(now())
+  updatedAt                                                                    DateTime            @updatedAt
 
   // KK Verification Fields
-  kkFile                    String?
-  kkFilePublicId            String?
-  kkRejectionReason         String?
-  kkVerifiedAt              DateTime?
+  kkFile                                                                       String?
+  kkFilePublicId                                                               String?
+  kkRejectionReason                                                            String?
+  kkVerifiedAt                                                                 DateTime?
   kkVerifiedBy              Int?                // ID admin yang memverifikasi
 
   // Profile fields baru
-  profilePicture            String?
-  profilePicturePublicId    String?
-  newEmailRequested         String?
+  profilePicture                                                               String?
+  profilePicturePublicId                                                       String?
+  newEmailRequested                                                            String?
 
   // Relations - Existing
-  announcements             Announcement[]
-  reports                   Report[]
-  emergencies               Emergency[]
-  volunteers                Volunteer[]
-  adminDashboards           AdminDashboard[]
-  activityLogs              ActivityLog[]
+  announcements                                                                Announcement[]
+  reports                                                                      Report[]
+  emergencies                                                                  Emergency[]
+  volunteers                                                                   Volunteer[]
+  adminDashboards                                                              AdminDashboard[]
+  activityLogs                                                                 ActivityLog[]
 
   // Relations - Dana Community
-  transactions              Transaction[]      @relation("UserTransactions")
-  createdTransactions       Transaction[]      @relation("TransactionCreatedBy")
-  payments                  Payment[]          @relation("UserPayments")
-  memberPayments            MemberPayment[]
-  createdFinancialSummaries FinancialSummary[]
-  createdFinancialReports   FinancialReport[]
+  transactions                                                                 Transaction[]      @relation("UserTransactions")
+  createdTransactions                                                          Transaction[]      @relation("TransactionCreatedBy")
+  payments                                                                     Payment[]          @relation("UserPayments")
+  memberPayments                                                               MemberPayment[]
+  createdFinancialSummaries                                                    FinancialSummary[]
+  createdFinancialReports                                                      FinancialReport[]
 
   // Relations - Bill System
-  bills                     Bill[]             @relation("UserBills")
-  createdBills              Bill[]             @relation("CreatedBills")
+  bills                                                                        Bill[]             @relation("UserBills")
+  createdBills                                                                 Bill[]             @relation("CreatedBills")
 
   // Relations - Notifications
-  notifications             Notification[]     @relation("UserNotifications")
-  createdNotifications      Notification[]     @relation("NotificationCreatedBy")
+  notifications                                                                Notification[]     @relation("UserNotifications")
+  createdNotifications                                                         Notification[]     @relation("NotificationCreatedBy")
 
   // Relations - Admin verifications (Self-relation)
   // Hanya satu sisi yang memiliki fields/references
-  verifiedKKUsers           User[]             @relation("AdminVerifiedUsers")
-  verifiedByAdmin           User?              @relation("AdminVerifiedUsers", fields: [kkVerifiedBy], references: [id])
+  verifiedKKUsers                                                              User[]             @relation("AdminVerifiedUsers")
+  verifiedByAdmin                                                              User?              @relation("AdminVerifiedUsers", fields: [kkVerifiedBy], references: [id])
 
   @@map("users")
 }
@@ -93,38 +93,39 @@ enum UserRole {
 
 // === NOTIFICATION SYSTEM ===
 model Notification {
-  id               String               @id @default(cuid())
+  id                                                                                           String            @id @default(cuid())
   userId           Int                  // Penerima notifikasi
-  type             NotificationType
-  title            String
-  message          String
+  type                                                                                         NotificationType
+  title                                                                                        String
+  message                                                                                      String
   icon             String?              // Nama icon atau URL icon
   iconColor        String?              // Warna icon dalam hex (#FF5733)
   data             Json?                // Data tambahan untuk action
-  isRead           Boolean              @default(false)
-  isArchived       Boolean              @default(false)
+  isRead                                                                                       Boolean           @default(false)
+  isArchived                                                                                   Boolean           @default(false)
   scheduledAt      DateTime?            // Untuk notifikasi terjadwal
   expiresAt        DateTime?            // Kapan notifikasi kedaluwarsa
   createdBy        Int                  // Siapa yang membuat notifikasi
   relatedEntityId  String?              // ID entity terkait (announcement, report, bill, dll)
   relatedEntityType String?             // Tipe entity terkait
 
-  // Relations
-  user             User                 @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  createdByUser    User                 @relation("NotificationCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  //                                                                                           Relations
+  user                                                                                         User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  createdByUser                                                                                User             @relation("NotificationCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
 
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  readAt           DateTime?
-  archivedAt       DateTime?
+  createdAt                                                                                    DateTime          @default(now())
+  updatedAt                                                                                    DateTime          @updatedAt
+  readAt                                                                                       DateTime?
+  archivedAt                                                                                   DateTime?
 
   @@map("notifications")
   @@index([userId])
-  @@index([userId, isRead])
-  @@index([userId, isArchived])
+  @@index([userId,                                                                             isRead])
+  @@index([userId,                                                                             isArchived])
   @@index([createdAt])
   @@index([scheduledAt])
   @@index([expiresAt])
+  securities                                                                                   Security[]       @relation("SecurityNotifications")
 }
 
 enum NotificationType {
@@ -139,6 +140,8 @@ enum NotificationType {
   COMMUNITY    // Kegiatan komunitas
   REMINDER     // Pengingat
   CUSTOM       // Notifikasi kustom
+  SOS_ALERT    // Alarm SOS Emergency - NEW
+  PATROL       // Notifikasi patroli - NEW
 }
 
 // === PROFILE ACTIVITY LOG ===
@@ -153,7 +156,7 @@ model ActivityLog {
   createAt    DateTime  @default(now())
   updateAt    DateTime  @default(now())
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("activity_logs")
   @@index([userId])
@@ -164,24 +167,24 @@ model ActivityLog {
 // === DANA COMMUNITY MODELS ===
 
 model Transaction {
-  id          Int              @id @default(autoincrement())
-  amount      Float
-  type        TransactionType
-  category    String
-  description String
-  date        DateTime         @default(now())
-  proofImage  String?
-  createdBy   Int
+  id                                                                                Int              @id @default(autoincrement())
+  amount                                                                            Float
+  type                                                                              TransactionType
+  category                                                                          String
+  description                                                                       String
+  date                                                                              DateTime         @default(now())
+  proofImage                                                                        String?
+  createdBy                                                                         Int
   userId      Int?             // Untuk transaksi yang terkait dengan user tertentu
   paymentId   Int?             // Jika transaksi terkait pembayaran
 
-  // Relations
-  user        User?            @relation("UserTransactions", fields: [userId], references: [id])
-  createdByUser User           @relation("TransactionCreatedBy", fields: [createdBy], references: [id])
-  payment     Payment?         @relation("PaymentTransactions", fields: [paymentId], references: [id])
+  //                                                                                Relations
+  user                                                                              User?           @relation("UserTransactions", fields: [userId], references: [id])
+  createdByUser                                                                     User            @relation("TransactionCreatedBy", fields: [createdBy], references: [id])
+  payment                                                                           Payment?        @relation("PaymentTransactions", fields: [paymentId], references: [id])
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt                                                                         DateTime         @default(now())
+  updatedAt                                                                         DateTime         @updatedAt
 
   @@map("transactions")
 }
@@ -192,26 +195,26 @@ enum TransactionType {
 }
 
 model Payment {
-  id            Int             @id @default(autoincrement())
-  amount        Float
-  method        PaymentMethod
-  status        PaymentStatus   @default(PENDING)
-  description   String
-  dueDate       DateTime
-  paidDate      DateTime?
+  id                                                                   Int             @id @default(autoincrement())
+  amount                                                               Float
+  method                                                               PaymentMethod
+  status                                                               PaymentStatus   @default(PENDING)
+  description                                                          String
+  dueDate                                                              DateTime
+  paidDate                                                             DateTime?
   qrCode        String?         // QR Code data untuk QRIS
   bankReference String?         // Referensi bank untuk mobile banking
   receiptImage  String?         // Bukti transfer/tanda terima
   userId        Int             // User yang melakukan pembayaran
 
-  // Relations
-  user          User            @relation("UserPayments", fields: [userId], references: [id])
-  transactions  Transaction[]   @relation("PaymentTransactions")
-  memberPayment MemberPayment?  @relation("PaymentMemberPayment")
-  bill          Bill?           @relation("PaymentBill")
+  //                                                                   Relations
+  user                                                                 User           @relation("UserPayments", fields: [userId], references: [id])
+  transactions                                                         Transaction[]  @relation("PaymentTransactions")
+  memberPayment                                                        MemberPayment? @relation("PaymentMemberPayment")
+  bill                                                                 Bill?          @relation("PaymentBill")
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt                                                            DateTime        @default(now())
+  updatedAt                                                            DateTime        @updatedAt
 
   @@map("payments")
 }
@@ -232,34 +235,34 @@ enum PaymentStatus {
 }
 
 model MemberPayment {
-  id        Int       @id @default(autoincrement())
+  id                                               Int        @id @default(autoincrement())
   month     Int       // 1-12
   year      Int       // 2024, 2025, etc
   amount    Float     // Jumlah yang harus dibayar
-  isPaid    Boolean   @default(false)
-  paidDate  DateTime?
+  isPaid                                           Boolean    @default(false)
+  paidDate                                         DateTime?
   dueDate   DateTime  // Tanggal jatuh tempo
-  userId    Int
-  paymentId Int?      @unique // Link ke Payment
+  userId                                           Int
+  paymentId                                        Int?       @unique // Link ke Payment
 
-  // Relations
-  user      User      @relation(fields: [userId], references: [id])
-  payment   Payment?  @relation("PaymentMemberPayment", fields: [paymentId], references: [id])
+  //                                               Relations
+  user                                             User      @relation(fields: [userId], references: [id])
+  payment                                          Payment?  @relation("PaymentMemberPayment", fields: [paymentId], references: [id])
 
   @@unique([userId, month, year])
   @@map("member_payments")
 }
 
 model FinancialSummary {
-  id           Int       @id @default(autoincrement())
-  month        Int
-  year         Int
-  totalIncome  Float     @default(0)
-  totalExpense Float     @default(0)
-  balance      Float     @default(0)
-  createdBy    Int
+  id            Int       @id @default(autoincrement())
+  month         Int
+  year          Int
+  totalIncome   Float     @default(0)
+  totalExpense  Float     @default(0)
+  balance       Float     @default(0)
+  createdBy     Int
 
-  // Relations
+  //            Relations
   createdByUser User     @relation(fields: [createdBy], references: [id])
 
   createdAt     DateTime  @default(now())
@@ -283,20 +286,20 @@ model TransactionCategory {
 }
 
 model FinancialReport {
-  id          Int         @id @default(autoincrement())
-  title       String
-  description String?
-  periodStart DateTime
-  periodEnd   DateTime
-  reportType  ReportType
+  id                                                      Int         @id @default(autoincrement())
+  title                                                   String
+  description                                             String?
+  periodStart                                             DateTime
+  periodEnd                                               DateTime
+  reportType                                              ReportType
   fileUrl     String?     // URL file laporan (PDF/Excel)
-  createdBy   Int
+  createdBy                                               Int
 
-  // Relations
-  createdByUser User       @relation(fields: [createdBy], references: [id])
+  //                                                      Relations
+  createdByUser                                           User       @relation(fields: [createdBy], references: [id])
 
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt                                               DateTime    @default(now())
+  updatedAt                                               DateTime    @updatedAt
 
   @@map("financial_reports")
 }
@@ -324,10 +327,10 @@ model Bill {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  // Relations
-  user          User        @relation("UserBills", fields: [userId], references: [id], onDelete: Cascade)
-  createdByUser User        @relation("CreatedBills", fields: [createdBy], references: [id], onDelete: Cascade)
-  payment       Payment?    @relation("PaymentBill", fields: [paymentId], references: [id])
+  //            Relations
+  user          User       @relation("UserBills", fields: [userId], references: [id], onDelete: Cascade)
+  createdByUser User       @relation("CreatedBills", fields: [createdBy], references: [id], onDelete: Cascade)
+  payment       Payment?   @relation("PaymentBill", fields: [paymentId], references: [id])
 
   @@map("bills")
 }
@@ -352,43 +355,59 @@ model Announcement {
   updatedAt      DateTime  @updatedAt
   createdBy      Int
 
-  admin          User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  admin          User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 }
 
 model Report {
-  id             Int       @id @default(autoincrement())
-  title          String
-  description    String
-  category       String
-  imageUrl       String?
+  id                                                              Int       @id @default(autoincrement())
+  title                                                           String
+  description                                                     String
+  category                                                        String
+  imageUrl                                                        String?
   imagePublicId  String?   // Tambahan untuk Cloudinary public ID
-  status         String    @default("pending")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  userId         Int
+  status                                                          String    @default("pending")
+  createdAt                                                       DateTime  @default(now())
+  updatedAt                                                       DateTime  @updatedAt
+  userId                                                          Int
 
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                                                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Emergency {
-  id             Int          @id @default(autoincrement())
-  type           String
-  details        String?
-  location       String?
-  latitude       String?
-  longitude      String?
-  needVolunteer  Boolean      @default(false)
-  volunteerCount Int          @default(0)
-  status         String       @default("ACTIVE")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  userId         Int?
+  id              Int                 @id @default(autoincrement())
+  type            String
+  details         String?
+  location        String?
+  latitude        String?
+  longitude       String?
+  needVolunteer   Boolean             @default(false)
+  volunteerCount  Int                 @default(0)
+  status          String              @default("ACTIVE")
+  severity        EmergencySeverity   @default(MEDIUM)
+  alarmSent       Boolean             @default(false)
+  alarmSentAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  userId          Int?
 
-  volunteers     Volunteer[]
-  user           User?        @relation(fields: [userId], references: [id])
+  volunteers      Volunteer[]
+  user            User?               @relation(fields: [userId], references: [id])
+  emergencyResponses EmergencyResponse[]
 
   @@map("emergencies")
+  @@index([severity])
+  @@index([alarmSent])
+  @@index([status, createdAt])
 }
+
+// Tambahkan enum EmergencySeverity setelah SecurityAction
+enum EmergencySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 
 model Volunteer {
   id          Int        @id @default(autoincrement())
@@ -400,8 +419,8 @@ model Volunteer {
   status      String     @default("REGISTERED")
   createdAt   DateTime   @default(now())
 
-  emergency   Emergency  @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
-  user        User?      @relation(fields: [userId], references: [id])
+  emergency   Emergency @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id])
 
   @@map("volunteers")
 }
@@ -434,7 +453,114 @@ model AdminDashboard {
   date                   DateTime  @default(now())
   adminId                Int
 
-  admin                  User      @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin                  User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@map("admin_dashboards")
+}
+
+// === SECURITY SYSTEM ===
+model Security {
+  id                                                           Int                  @id @default(autoincrement())
+  nama                                                         String
+  nik                                                          String               @unique
+  email                                                        String               @unique
+  nomorTelepon                                                 String
+  shift                                                        SecurityShift        @default(MORNING)
+  status                                                       SecurityStatus       @default(ACTIVE)
+  isOnDuty                                                     Boolean              @default(false)
+  currentLocation String?           // Tambahkan ini
+  currentLatitude                                              String?
+  currentLongitude                                             String?
+  lastActiveAt                                                 DateTime?
+  deviceToken     String?           // Untuk push notification
+  emergencyCount                                               Int                  @default(0) // Jumlah emergency yang ditangani
+
+  //                                                           Relations
+  emergencyResponses                                           EmergencyResponse[]
+  securityLogs                                                 SecurityLog[]
+  notifications                                                Notification[]      @relation("SecurityNotifications")
+
+  createdAt                                                    DateTime             @default(now())
+  updatedAt                                                    DateTime             @updatedAt
+
+  @@map("security_personnel")
+  @@index([shift])
+  @@index([status])
+  @@index([isOnDuty])
+}
+
+enum SecurityShift {
+  MORNING     // 06:00 - 14:00
+  AFTERNOON   // 14:00 - 22:00
+  NIGHT       // 22:00 - 06:00
+  FLEXIBLE    // Fleksibel
+}
+
+enum SecurityStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  SUSPENDED
+}
+
+model EmergencyResponse {
+  id                                               Int             @id @default(autoincrement())
+  emergencyId                                      Int
+  securityId                                       Int
+  responseTime    Int               // Dalam detik
+  status                                           ResponseStatus  @default(DISPATCHED)
+  actionTaken                                      String?
+  notes                                            String?
+
+  //                                               Relations
+  emergency                                        Emergency      @relation(fields: [emergencyId], references: [id], onDelete: Cascade)
+  security                                         Security       @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  arrivedAt                                        DateTime?
+  completedAt                                      DateTime?
+  createdAt                                        DateTime        @default(now())
+  updatedAt                                        DateTime        @updatedAt
+
+  @@map("emergency_responses")
+  @@unique([emergencyId,                           securityId])
+}
+
+enum ResponseStatus {
+  DISPATCHED    // Telah dikirim
+  EN_ROUTE      // Dalam perjalanan
+  ARRIVED       // Telah tiba
+  HANDLING      // Sedang menangani
+  RESOLVED      // Selesai
+  CANCELLED     // Dibatalkan
+}
+
+model SecurityLog {
+  id         Int             @id @default(autoincrement())
+  securityId Int
+  action     SecurityAction
+  details    String?
+  location   String?
+  latitude   String?
+  longitude  String?
+
+  //         Relations
+  security   Security       @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  timestamp  DateTime        @default(now())
+
+  @@map("security_logs")
+  @@index([securityId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+enum SecurityAction {
+  CHECK_IN        // Mulai bertugas
+  CHECK_OUT       // Selesai bertugas
+  PATROL_START    // Mulai patroli
+  PATROL_END      // Selesai patroli
+  EMERGENCY_RESPONSE  // Merespons emergency
+  LOCATION_UPDATE // Update lokasi
+  STATUS_CHANGE   // Perubahan status
+  INCIDENT_REPORT // Laporan kejadian
 }

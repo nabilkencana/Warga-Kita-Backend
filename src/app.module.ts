@@ -14,12 +14,25 @@ import { BillsModule } from './bills/bills.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { ProfileModule } from './profile/profile.module';
 import { NotificationModule } from './notification/notification.module';
+import { SecurityController } from './security/security.controller';
+import { SecurityService } from './security/security.service';
+import { SecurityModule } from './security/security.module';
 
 @Module({
   imports: [UsersModule, AuthModule, PrismaModule,
-    ConfigModule.forRoot({ isGlobal: true }), AnnouncementsModule, ReportsModule, EmergencyModule, AdminModule, TransactionsModule, BillsModule, CloudinaryModule, ProfileModule, NotificationModule// 🔥 aktifkan .env
+    ConfigModule.forRoot({ isGlobal: true }),
+    AnnouncementsModule,
+    ReportsModule,
+    EmergencyModule,
+    AdminModule,
+    TransactionsModule,
+    BillsModule,
+    CloudinaryModule,
+    ProfileModule,
+    NotificationModule,
+    SecurityModule// 🔥 aktifkan .env
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, SecurityController],
+  providers: [AppService, SecurityService],
 })
 export class AppModule { }

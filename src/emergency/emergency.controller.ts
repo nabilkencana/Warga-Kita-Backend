@@ -15,6 +15,8 @@ import { EmergencyService } from './emergency.service';
 export class EmergencyController {
     constructor(private readonly emergencyService: EmergencyService) { }
 
+    // === EXISTING ENDPOINTS ===
+
     // POST - Create new SOS emergency
     @Post('sos')
     async createSOS(@Body() body: any) {
@@ -33,14 +35,14 @@ export class EmergencyController {
                 needVolunteer: body.needVolunteer || false,
                 volunteerCount: body.volunteerCount || 0,
                 userId: body.userId ? Number(body.userId) : undefined,
+                severity: body.severity || 'MEDIUM',
             };
 
             return this.emergencyService.createSOS(emergencyData);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            throw new BadRequestException(message || 'Gagal ...');
+            throw new BadRequestException(message || 'Gagal membuat emergency');
         }
-
     }
 
     // GET - Get all active emergencies
@@ -158,5 +160,65 @@ export class EmergencyController {
     @Get('stats/overview')
     async getEmergencyStats() {
         return this.emergencyService.getEmergencyStats();
+    }
+
+    // === NEW SECURITY ENDPOINTS ===
+
+    // GET - Get emergencies for security dashboard
+    @Get('security/dashboard')
+    async getSecurityEmergencies() {
+        return this.emergencyService.getSecurityEmergencies();
+    }
+
+    // POST - Security accept emergency
+    @Post('security/accept')
+    async securityAcceptEmergency(@Body() body: { securityId: number; emergencyId: number }) {
+        if (!body.securityId || !body.emergencyId) {
+            throw new BadRequestException('securityId dan emergencyId harus diisi');
+        }
+
+        return this.emergencyService.acceptEmergency(body.securityId, body.emergencyId);
+    }
+
+    // POST - Security arrive at emergency
+    @Post('security/arrive')
+    async securityArriveAtEmergency(@Body() body: { securityId: number; emergencyId: number }) {
+        if (!body.securityId || !body.emergencyId) {
+            throw new BadRequestException('securityId dan emergencyId harus diisi');
+        }
+
+        return this.emergencyService.arriveAtEmergency(body.securityId, body.emergencyId);
+    }
+
+    // POST - Security complete emergency
+    @Post('security/complete')
+    async securityCompleteEmergency(@Body() body: {
+        securityId: number;
+        emergencyId: number;
+        actionTaken: string;
+        notes?: string;
+    }) {
+        if (!body.securityId || !body.emergencyId || !body.actionTaken) {
+            throw new BadRequestException('securityId, emergencyId, dan actionTaken harus diisi');
+        }
+
+        return this.emergencyService.completeEmergency(
+            body.securityId,
+            body.emergencyId,
+            body.actionTaken,
+            body.notes
+        );
+    }
+
+    // GET - Get security statistics
+    @Get('security/stats')
+    async getSecurityStats(@Body() body?: { securityId?: number }) {
+        return this.emergencyService.getSecurityStats(body?.securityId);
+    }
+
+    // GET - Get emergency responses untuk security tertentu
+    @Get('security/:securityId/responses')
+    async getSecurityResponses(@Param('securityId', ParseIntPipe) securityId: number) {
+        return this.emergencyService.getSecurityStats(securityId);
     }
 }

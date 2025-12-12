@@ -523,6 +523,7 @@ export class AuthService {
           audience: this.config.get('GOOGLE_CLIENT_ID'),
         });
         googlePayload = ticket.getPayload();
+        
 
         if (!googlePayload) {
           throw new UnauthorizedException('Invalid Google ID token');
@@ -556,6 +557,17 @@ export class AuthService {
       let user = await this.prisma.user.findUnique({
         where: { email: googlePayload.email }
       });
+
+      // Jika user belum terdaftar, kembalikan error khusus
+      if (!user) {
+        this.logger.log(`User tidak ditemukan: ${googlePayload.email}`);
+
+        // Buat response error khusus untuk frontend
+        throw new UnauthorizedException('USER_NOT_REGISTERED: Akun Google belum terdaftar. Silakan daftar terlebih dahulu.');
+      }
+
+      // Jika user ditemukan, lanjutkan proses seperti biasa
+      this.logger.log(`Existing user logged in via Google: ${user.email}`);
 
       if (!user) {
         this.logger.log(`Creating new user for: ${googlePayload.email}`);
