@@ -4,6 +4,7 @@ import { SecurityService } from './security.service';
 
 @Controller('security')
 export class SecurityController {
+    prisma: any;
     constructor(private securityService: SecurityService) { }
 
     @Get('dashboard/:securityId')
@@ -145,5 +146,24 @@ export class SecurityController {
     @Get('performance/:securityId')
     async getPerformanceMetrics(@Param('securityId') securityId: string) {
         return this.securityService.getPerformanceMetrics(parseInt(securityId));
+    }
+
+    // Di security.controller.ts
+    @Get('check-security/:userId')
+    async checkIfUserIsSecurity(@Param('userId') userId: string) {
+        const security = await this.prisma.security_personnel.findFirst({
+            where: {
+                OR: [
+                    { id: parseInt(userId) },
+                    { userId: parseInt(userId) }
+                ]
+            }
+        });
+
+        return {
+            isSecurity: !!security,
+            securityId: security?.id,
+            nama: security?.nama
+        };
     }
 }

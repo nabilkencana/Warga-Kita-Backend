@@ -1,14 +1,29 @@
 // src/security/security.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmergencyService } from '../emergency/emergency.service';
 
 @Injectable()
 export class SecurityService {
+    completeEmergency(securityId: number, emergencyId: number, actionTaken: string, notes: string | undefined) {
+        throw new Error('Method not implemented.');
+    }
+    arriveAtEmergency(securityId: number, emergencyId: number) {
+        throw new Error('Method not implemented.');
+    }
     constructor(private prisma: PrismaService) { }
 
     // Get dashboard data for security
     async getDashboardData(securityId: number) {
+        // First, verify security exists
+        const securityExists = await this.prisma.security_personnel.findUnique({
+            where: { id: securityId }
+        });
+
+        if (!securityExists) {
+            throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+        }
+
         const [emergencies, assignedEmergencies, stats, securityInfo] = await Promise.all([
             this.prisma.emergency.findMany({
                 where: {
@@ -31,7 +46,6 @@ export class SecurityService {
                 }
             }),
             this.getSecurityStats(securityId),
-            // PERBAIKAN: Gunakan nama tabel yang benar
             this.prisma.security_personnel.findUnique({
                 where: { id: securityId },
                 select: {
@@ -43,6 +57,11 @@ export class SecurityService {
                     email: true,
                     nomorTelepon: true,
                     status: true,
+                    userId: true,
+                    currentLocation: true,
+                    currentLatitude: true,
+                    currentLongitude: true,
+                    lastActiveAt: true,
                     createdAt: true,
                     updatedAt: true
                 }
@@ -60,76 +79,142 @@ export class SecurityService {
 
     // Security check in - PERBAIKAN
     async checkIn(securityId: number, location?: string) {
-        const security = await this.prisma.security_personnel.update({
-            where: { id: securityId },
-            data: {
-                isOnDuty: true,
-                lastActiveAt: new Date(),
-                ...(location && { currentLocation: location })
-            }
-        });
+        try {
+            // Verify security exists first
+            const existingSecurity = await this.prisma.security_personnel.findUnique({
+                where: { id: securityId }
+            });
 
-        // Log check in
-        await this.prisma.securityLog.create({
-            data: {
-                securityId,
-                action: 'CHECK_IN',
-                details: 'Security mulai bertugas',
-                location: location,
-                timestamp: new Date()
+            if (!existingSecurity) {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
             }
-        });
 
-        return security;
+            const security = await this.prisma.security_personnel.update({
+                where: { id: securityId },
+                data: {
+                    isOnDuty: true,
+                    lastActiveAt: new Date(),
+                    ...(location && { currentLocation: location })
+                }
+            });
+
+            // Log check in
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'CHECK_IN',
+                    details: 'Security mulai bertugas',
+                    location: location,
+                    timestamp: new Date()
+                }
+            });
+
+            return {
+                success: true,
+                message: 'Check-in berhasil',
+                data: {
+                    id: security.id,
+                    nama: security.nama,
+                    isOnDuty: security.isOnDuty,
+                    lastActiveAt: security.lastActiveAt
+                }
+            };
+        } catch (error) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+            }
+            throw error;
+        }
     }
 
     // Security check out - PERBAIKAN
     async checkOut(securityId: number) {
-        const security = await this.prisma.security_personnel.update({
-            where: { id: securityId },
-            data: {
-                isOnDuty: false,
-                lastActiveAt: new Date()
-            }
-        });
+        try {
+            // Verify security exists first
+            const existingSecurity = await this.prisma.security_personnel.findUnique({
+                where: { id: securityId }
+            });
 
-        // Log check out
-        await this.prisma.securityLog.create({
-            data: {
-                securityId,
-                action: 'CHECK_OUT',
-                details: 'Security selesai bertugas',
-                timestamp: new Date()
+            if (!existingSecurity) {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
             }
-        });
 
-        return security;
+            const security = await this.prisma.security_personnel.update({
+                where: { id: securityId },
+                data: {
+                    isOnDuty: false,
+                    lastActiveAt: new Date()
+                }
+            });
+
+            // Log check out
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'CHECK_OUT',
+                    details: 'Security selesai bertugas',
+                    timestamp: new Date()
+                }
+            });
+
+            return {
+                success: true,
+                message: 'Check-out berhasil',
+                data: {
+                    id: security.id,
+                    nama: security.nama,
+                    isOnDuty: security.isOnDuty,
+                    lastActiveAt: security.lastActiveAt
+                }
+            };
+        } catch (error) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+            }
+            throw error;
+        }
     }
 
     // Update security location - PERBAIKAN
     async updateLocation(securityId: number, latitude: string, longitude: string) {
-        const security = await this.prisma.security_personnel.update({
-            where: { id: securityId },
-            data: {
-                currentLatitude: latitude,
-                currentLongitude: longitude,
-                lastActiveAt: new Date()
-            }
-        });
+        try {
+            const security = await this.prisma.security_personnel.update({
+                where: { id: securityId },
+                data: {
+                    currentLatitude: latitude,
+                    currentLongitude: longitude,
+                    lastActiveAt: new Date()
+                }
+            });
 
-        // Log location update
-        await this.prisma.securityLog.create({
-            data: {
-                securityId,
-                action: 'LOCATION_UPDATE',
-                details: 'Security update lokasi',
-                latitude: latitude,
-                longitude: longitude,
-                timestamp: new Date()
-            }
-        });
+            // Log location update
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'LOCATION_UPDATE',
+                    details: 'Security update lokasi',
+                    latitude: latitude,
+                    longitude: longitude,
+                    timestamp: new Date()
+                }
+            });
 
-        return security;
+            return {
+                success: true,
+                message: 'Lokasi berhasil diupdate',
+                data: {
+                    id: security.id,
+                    nama: security.nama,
+                    latitude: security.currentLatitude,
+                    longitude: security.currentLongitude
+                }
+            };
+        } catch (error) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+            }
+            throw error;
+        }
     }
 
     // Get assigned emergencies for a security
@@ -208,6 +293,24 @@ export class SecurityService {
         nomorTelepon: string;
         shift?: 'MORNING' | 'AFTERNOON' | 'NIGHT' | 'FLEXIBLE';
     }) {
+        // Check if email already exists
+        const existingSecurity = await this.prisma.security_personnel.findUnique({
+            where: { email: data.email }
+        });
+
+        if (existingSecurity) {
+            throw new Error('Email sudah terdaftar');
+        }
+
+        // Check if NIK already exists
+        const existingNIK = await this.prisma.security_personnel.findUnique({
+            where: { nik: data.nik }
+        });
+
+        if (existingNIK) {
+            throw new Error('NIK sudah terdaftar');
+        }
+
         return this.prisma.security_personnel.create({
             data: {
                 nama: data.nama,
@@ -306,10 +409,16 @@ export class SecurityService {
                                 id: true,
                                 type: true,
                                 status: true,
-                                createdAt: true
+                                createdAt: true,
+                                location: true,
+                                severity: true
                             }
                         }
                     }
+                },
+                securityLogs: {
+                    orderBy: { timestamp: 'desc' },
+                    take: 10
                 }
             }
         });
@@ -325,48 +434,70 @@ export class SecurityService {
 
     // Start patrol - PERBAIKAN
     async startPatrol(securityId: number, location?: string) {
-        const security = await this.prisma.security_personnel.update({
-            where: { id: securityId },
-            data: {
-                isOnDuty: true,
-                lastActiveAt: new Date(),
-                ...(location && { currentLocation: location })
-            }
-        });
+        try {
+            const security = await this.prisma.security_personnel.update({
+                where: { id: securityId },
+                data: {
+                    isOnDuty: true,
+                    lastActiveAt: new Date(),
+                    ...(location && { currentLocation: location })
+                }
+            });
 
-        await this.prisma.securityLog.create({
-            data: {
-                securityId,
-                action: 'PATROL_START',
-                details: 'Security mulai patroli',
-                location: location,
-                timestamp: new Date()
-            }
-        });
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'PATROL_START',
+                    details: 'Security mulai patroli',
+                    location: location,
+                    timestamp: new Date()
+                }
+            });
 
-        return security;
+            return {
+                success: true,
+                message: 'Patroli dimulai',
+                data: security
+            };
+        } catch (error) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+            }
+            throw error;
+        }
     }
 
     // End patrol - PERBAIKAN
     async endPatrol(securityId: number) {
-        const security = await this.prisma.security_personnel.update({
-            where: { id: securityId },
-            data: {
-                isOnDuty: false,
-                lastActiveAt: new Date()
-            }
-        });
+        try {
+            const security = await this.prisma.security_personnel.update({
+                where: { id: securityId },
+                data: {
+                    isOnDuty: false,
+                    lastActiveAt: new Date()
+                }
+            });
 
-        await this.prisma.securityLog.create({
-            data: {
-                securityId,
-                action: 'PATROL_END',
-                details: 'Security selesai patroli',
-                timestamp: new Date()
-            }
-        });
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'PATROL_END',
+                    details: 'Security selesai patroli',
+                    timestamp: new Date()
+                }
+            });
 
-        return security;
+            return {
+                success: true,
+                message: 'Patroli selesai',
+                data: security
+            };
+        } catch (error) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+            }
+            throw error;
+        }
     }
 
     // Report incident
@@ -376,7 +507,7 @@ export class SecurityService {
         latitude?: string;
         longitude?: string;
     }) {
-        return this.prisma.securityLog.create({
+        const log = await this.prisma.securityLog.create({
             data: {
                 securityId,
                 action: 'INCIDENT_REPORT',
@@ -387,6 +518,12 @@ export class SecurityService {
                 timestamp: new Date()
             }
         });
+
+        return {
+            success: true,
+            message: 'Laporan insiden berhasil dikirim',
+            data: log
+        };
     }
 
     // Get emergency responses for security
@@ -423,7 +560,9 @@ export class SecurityService {
 
         const totalResponses = responses.length;
         const completedResponses = responses.filter(r => r.status === 'RESOLVED').length;
-        const avgResponseTime = responses.reduce((sum, r) => sum + (r.responseTime || 0), 0) / totalResponses;
+        const avgResponseTime = totalResponses > 0
+            ? responses.reduce((sum, r) => sum + (r.responseTime || 0), 0) / totalResponses
+            : 0;
 
         const resolvedResponses = responses.filter(r => r.arrivedAt && r.completedAt && r.status === 'RESOLVED');
         const avgResolutionTime = resolvedResponses.length > 0
@@ -444,26 +583,70 @@ export class SecurityService {
 
     // Accept emergency (simplified version)
     async acceptEmergency(securityId: number, emergencyId: number) {
-        // Check if already assigned
-        const existingResponse = await this.prisma.emergencyResponse.findFirst({
-            where: {
-                securityId,
-                emergencyId
-            }
-        });
+        try {
+            // Check if emergency exists
+            const emergency = await this.prisma.emergency.findUnique({
+                where: { id: emergencyId }
+            });
 
-        if (existingResponse) {
-            throw new Error('Already assigned to this emergency');
+            if (!emergency) {
+                throw new NotFoundException(`Emergency dengan ID ${emergencyId} tidak ditemukan`);
+            }
+
+            // Check if already assigned
+            const existingResponse = await this.prisma.emergencyResponse.findFirst({
+                where: {
+                    securityId,
+                    emergencyId
+                }
+            });
+
+            if (existingResponse) {
+                return {
+                    success: false,
+                    message: 'Anda sudah ditugaskan untuk emergency ini',
+                    data: existingResponse
+                };
+            }
+
+            // Create new response
+            const response = await this.prisma.emergencyResponse.create({
+                data: {
+                    securityId,
+                    emergencyId,
+                    status: 'DISPATCHED',
+                    responseTime: 0
+                }
+            });
+
+            // Update emergency satpamAssigned status
+            await this.prisma.emergency.update({
+                where: { id: emergencyId },
+                data: {
+                    satpamAssigned: true
+                }
+            });
+
+            // Log emergency response
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'EMERGENCY_RESPONSE',
+                    details: `Menerima emergency ${emergency.type} di ${emergency.location}`,
+                    location: emergency.location,
+                    latitude: emergency.latitude,
+                    longitude: emergency.longitude,
+                    timestamp: new Date()
+                }
+            });
+
+            return {
+                success: true,
+                message: 'Emergency berhasil diterima',
+                data: response
+            };
+        } catch (error) {
+            throw error;
         }
-
-        // Create new response
-        return this.prisma.emergencyResponse.create({
-            data: {
-                securityId,
-                emergencyId,
-                status: 'DISPATCHED',
-                responseTime: 0
-            }
-        });
     }
 }
