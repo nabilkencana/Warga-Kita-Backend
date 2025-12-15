@@ -1,84 +1,97 @@
 // src/security/security.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmergencyService } from '../emergency/emergency.service';
 
 @Injectable()
 export class SecurityService {
-    completeEmergency(securityId: number, emergencyId: number, actionTaken: string, notes: string | undefined) {
-        throw new Error('Method not implemented.');
+    private readonly logger = new Logger(SecurityService.name);
+
+    constructor(private prisma: PrismaService) {
+        this.logger.log('SecurityService initialized');
     }
-    arriveAtEmergency(securityId: number, emergencyId: number) {
-        throw new Error('Method not implemented.');
-    }
-    constructor(private prisma: PrismaService) { }
+
 
     // Get dashboard data for security
     async getDashboardData(securityId: number) {
-        // First, verify security exists
-        const securityExists = await this.prisma.security_personnel.findUnique({
-            where: { id: securityId }
-        });
+        this.logger.log(`Getting dashboard data for securityId: ${securityId}`);
 
-        if (!securityExists) {
-            throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
-        }
+        try {
+            // First, verify security exists
+            const securityExists = await this.prisma.security_personnel.findUnique({
+                where: { id: securityId }
+            });
 
-        const [emergencies, assignedEmergencies, stats, securityInfo] = await Promise.all([
-            this.prisma.emergency.findMany({
-                where: {
-                    status: 'ACTIVE',
-                    alarmSent: true
-                },
-                include: {
-                    emergencyResponses: {
-                        where: { securityId },
-                        select: { status: true }
+            if (!securityExists) {
+                throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
+            }
+
+            this.logger.log(`Security found: ${securityExists.nama}`);
+
+            const [emergencies, assignedEmergencies, stats, securityInfo] = await Promise.all([
+                this.prisma.emergency.findMany({
+                    where: {
+                        status: 'ACTIVE',
+                        alarmSent: true
+                    },
+                    include: {
+                        emergencyResponses: {
+                            where: { securityId },
+                            select: { status: true }
+                        }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 10
+                }),
+                this.prisma.emergencyResponse.count({
+                    where: {
+                        securityId,
+                        status: { in: ['DISPATCHED', 'EN_ROUTE', 'ARRIVED', 'HANDLING'] }
                     }
-                },
-                orderBy: { createdAt: 'desc' },
-                take: 10
-            }),
-            this.prisma.emergencyResponse.count({
-                where: {
-                    securityId,
-                    status: { in: ['DISPATCHED', 'EN_ROUTE', 'ARRIVED', 'HANDLING'] }
-                }
-            }),
-            this.getSecurityStats(securityId),
-            this.prisma.security_personnel.findUnique({
-                where: { id: securityId },
-                select: {
-                    id: true,
-                    nama: true,
-                    shift: true,
-                    isOnDuty: true,
-                    emergencyCount: true,
-                    email: true,
-                    nomorTelepon: true,
-                    status: true,
-                    userId: true,
-                    currentLocation: true,
-                    currentLatitude: true,
-                    currentLongitude: true,
-                    lastActiveAt: true,
-                    createdAt: true,
-                    updatedAt: true
-                }
-            })
-        ]);
+                }),
+                this.getSecurityStats(securityId),
+                this.prisma.security_personnel.findUnique({
+                    where: { id: securityId },
+                    select: {
+                        id: true,
+                        nama: true,
+                        shift: true,
+                        isOnDuty: true,
+                        emergencyCount: true,
+                        email: true,
+                        nomorTelepon: true,
+                        status: true,
+                        userId: true,
+                        currentLocation: true,
+                        currentLatitude: true,
+                        currentLongitude: true,
+                        lastActiveAt: true,
+                        createdAt: true,
+                        updatedAt: true
+                    }
+                })
+            ]);
 
-        return {
-            securityInfo,
-            emergencies,
-            assignedEmergencies,
-            stats,
-            totalActiveEmergencies: emergencies.length
-        };
+            return {
+                success: true,
+                message: 'Dashboard data retrieved successfully',
+                securityInfo,
+                emergencies,
+                assignedEmergencies,
+                stats,
+                totalActiveEmergencies: emergencies.length,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            this.logger.error(`Error in getDashboardData: ${error.message}`, error.stack);
+            throw error;
+        }
     }
 
-    // Security check in - PERBAIKAN
+    // Security check in
     async checkIn(securityId: number, location?: string) {
+        this.logger.log(`Check-in requested for securityId: ${securityId}`);
+
         try {
             // Verify security exists first
             const existingSecurity = await this.prisma.security_personnel.findUnique({
@@ -109,6 +122,8 @@ export class SecurityService {
                 }
             });
 
+            this.logger.log(`Check-in successful for security: ${security.nama}`);
+
             return {
                 success: true,
                 message: 'Check-in berhasil',
@@ -120,6 +135,7 @@ export class SecurityService {
                 }
             };
         } catch (error) {
+            this.logger.error(`Error in checkIn: ${error.message}`, error.stack);
             if (error.code === 'P2025') {
                 throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
             }
@@ -127,8 +143,10 @@ export class SecurityService {
         }
     }
 
-    // Security check out - PERBAIKAN
+    // Security check out
     async checkOut(securityId: number) {
+        this.logger.log(`Check-out requested for securityId: ${securityId}`);
+
         try {
             // Verify security exists first
             const existingSecurity = await this.prisma.security_personnel.findUnique({
@@ -157,6 +175,8 @@ export class SecurityService {
                 }
             });
 
+            this.logger.log(`Check-out successful for security: ${security.nama}`);
+
             return {
                 success: true,
                 message: 'Check-out berhasil',
@@ -168,6 +188,7 @@ export class SecurityService {
                 }
             };
         } catch (error) {
+            this.logger.error(`Error in checkOut: ${error.message}`, error.stack);
             if (error.code === 'P2025') {
                 throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
             }
@@ -213,6 +234,119 @@ export class SecurityService {
             if (error.code === 'P2025') {
                 throw new NotFoundException(`Security dengan ID ${securityId} tidak ditemukan`);
             }
+            throw error;
+        }
+    }
+
+    // Implementasi method yang belum diimplementasi
+    async arriveAtEmergency(securityId: number, emergencyId: number) {
+        this.logger.log(`Arrive at emergency: securityId=${securityId}, emergencyId=${emergencyId}`);
+
+        try {
+            // Find the response
+            const response = await this.prisma.emergencyResponse.findFirst({
+                where: {
+                    securityId,
+                    emergencyId
+                }
+            });
+
+            if (!response) {
+                throw new NotFoundException('Emergency response not found');
+            }
+
+            // Update response status
+            const updatedResponse = await this.prisma.emergencyResponse.update({
+                where: { id: response.id },
+                data: {
+                    status: 'ARRIVED',
+                    arrivedAt: new Date()
+                }
+            });
+
+            // Log the action
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'EMERGENCY_RESPONSE',
+                    details: `Tiba di lokasi emergency ${emergencyId}`,
+                    timestamp: new Date()
+                }
+            });
+
+            return {
+                success: true,
+                message: 'Telah tiba di lokasi emergency',
+                data: updatedResponse
+            };
+        } catch (error) {
+            this.logger.error(`Error in arriveAtEmergency: ${error.message}`, error.stack);
+            throw error;
+        }
+    }
+
+    async completeEmergency(securityId: number, emergencyId: number, actionTaken: string, notes?: string) {
+        this.logger.log(`Complete emergency: securityId=${securityId}, emergencyId=${emergencyId}`);
+
+        try {
+            // Find the response
+            const response = await this.prisma.emergencyResponse.findFirst({
+                where: {
+                    securityId,
+                    emergencyId
+                }
+            });
+
+            if (!response) {
+                throw new NotFoundException('Emergency response not found');
+            }
+
+            // Update response status
+            const updatedResponse = await this.prisma.emergencyResponse.update({
+                where: { id: response.id },
+                data: {
+                    status: 'RESOLVED',
+                    actionTaken: actionTaken,
+                    notes: notes,
+                    completedAt: new Date()
+                }
+            });
+
+            // Update emergency status
+            await this.prisma.emergency.update({
+                where: { id: emergencyId },
+                data: {
+                    status: 'RESOLVED'
+                }
+            });
+
+            // Increment emergency count for security
+            await this.prisma.security_personnel.update({
+                where: { id: securityId },
+                data: {
+                    emergencyCount: {
+                        increment: 1
+                    }
+                }
+            });
+
+            // Log the action
+            await this.prisma.securityLog.create({
+                data: {
+                    securityId,
+                    action: 'EMERGENCY_RESPONSE',
+                    details: `Menyelesaikan emergency ${emergencyId}: ${actionTaken}`,
+                    timestamp: new Date()
+                }
+            });
+
+            return {
+                success: true,
+                message: 'Emergency berhasil diselesaikan',
+                data: updatedResponse
+            };
+        } catch (error) {
+            this.logger.error(`Error in completeEmergency: ${error.message}`, error.stack);
             throw error;
         }
     }

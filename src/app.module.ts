@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -18,8 +18,12 @@ import { SecurityController } from './security/security.controller';
 import { SecurityService } from './security/security.service';
 import { SecurityModule } from './security/security.module';
 
+@Global() // Tambahkan @Global() agar bisa diakses di semua module
 @Module({
-  imports: [UsersModule, AuthModule, PrismaModule,
+  imports: [
+    UsersModule,
+    AuthModule,
+    PrismaModule,
     ConfigModule.forRoot({ isGlobal: true }),
     AnnouncementsModule,
     ReportsModule,
