@@ -220,4 +220,23 @@ export class SecurityController {
             securityId: security?.id
         };
     }
+
+    @Get('user/:userId')
+    async getSecurityByUserId(@Param('userId') userId: string) {
+        const security = await this.securityService.getSecurityByUserId(parseInt(userId));
+
+        if (!security) {
+            return {
+                success: false,
+                message: 'User is not registered as security personnel',
+                data: null
+            };
+        }
+
+        return {
+            success: true,
+            message: 'Security found',
+            data: security
+        };
+    }
 }

@@ -843,4 +843,10 @@ export class SecurityService {
             throw error;
         }
     }
+
+    async getSecurityByUserId(userId: number) {
+        return this.prisma.security.findFirst({
+            where: { userId }
+        });
+    }
 }
