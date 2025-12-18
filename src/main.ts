@@ -10,6 +10,7 @@ export default async function bootstrap() {
 
   const port = process.env.PORT || 1922;
   await app.listen(port);
+  console.log(`🚀 Application is running on: http://localhost:1922`);
 }
 bootstrap();
 

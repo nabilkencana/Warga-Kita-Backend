@@ -17,10 +17,16 @@ import { NotificationModule } from './notification/notification.module';
 import { SecurityController } from './security/security.controller';
 import { SecurityService } from './security/security.service';
 import { SecurityModule } from './security/security.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Global() // Tambahkan @Global() agar bisa diakses di semua module
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      serveRoot: '/public', // URL path untuk akses file static
+    }),
     UsersModule,
     AuthModule,
     PrismaModule,
