@@ -17,135 +17,105 @@ import { NotificationService } from './notification.service';
         credentials: true,
     },
     transports: ['websocket', 'polling'], // ✅ Tambahkan transport options
+    namespace: '/notifications', // Tentukan namespace
 })
 export class NotificationWebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
     private readonly logger = new Logger(NotificationWebSocketGateway.name);
-    private userSocketMap = new Map<number, string>();
+    private userSocketMap = new Map<number, string[]>();
 
     constructor() {
         this.logger.log('WebSocket Gateway initialized');
     }
 
-    async handleConnection(@ConnectedSocket() client: Socket) {
+    async handleConnection(client: Socket) {
         try {
             const userId = client.handshake.query.userId;
-            const token = client.handshake.auth?.token || client.handshake.headers?.authorization;
+            if (userId && !isNaN(Number(userId))) {
+                const userIdNum = Number(userId);
 
-            this.logger.debug(`Connection attempt: userId=${userId}, clientId=${client.id}`);
-
-            // Validasi userId
-            if (!userId || isNaN(Number(userId))) {
-                this.logger.warn(`Invalid userId: ${userId}`);
-                client.disconnect();
-                return;
-            }
-
-            const userIdNum = Number(userId);
-
-            // TODO: Validasi token JWT di sini (opsional untuk sekarang)
-            if (!this.validateToken(token)) {
-                client.disconnect();
-                return;
-            }
-
-            // Simpan mapping
-            this.userSocketMap.set(userIdNum, client.id);
-
-            // Join rooms
-            await client.join(`user_${userIdNum}`);
-            await client.join('general');
-
-            this.logger.log(`✅ Client connected: ${client.id} for user ${userIdNum}`);
-            this.logger.log(`📊 Total connected users: ${this.userSocketMap.size}`);
-
-            // Kirim welcome message
-            client.emit('connected', {
-                type: 'CONNECTED',
-                data: {
-                    message: 'WebSocket connected successfully',
-                    userId: userIdNum,
-                    timestamp: new Date(),
-                    serverInfo: {
-                        connections: this.userSocketMap.size,
-                        version: '1.0.0'
-                    }
+                // Simpan multiple socket connections per user
+                if (!this.userSocketMap.has(userIdNum)) {
+                    this.userSocketMap.set(userIdNum, []);
                 }
-            });
 
+                const userSockets = this.userSocketMap.get(userIdNum);
+                userSockets!.push(client.id);
+
+                // Join room berdasarkan userId
+                await client.join(`user_${userIdNum}`);
+
+                // Juga join ke room umum berdasarkan RT jika ada
+                const rt = client.handshake.query.rt;
+                if (rt) {
+                    await client.join(`rt_${rt}`);
+                }
+
+                // Join ke room general
+                await client.join('general');
+
+                this.logger.log(`Client connected: ${client.id} for user ${userIdNum}`);
+                this.logger.log(`Total connections for user ${userIdNum}: ${userSockets!.length}`);
+
+                // Kirim welcome message
+                client.emit('connected', {
+                    type: 'CONNECTED',
+                    data: {
+                        message: 'WebSocket connected successfully',
+                        userId: userIdNum,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
         } catch (error) {
-            this.logger.error(`Connection error: ${error.message}`);
-            client.disconnect();
+            this.logger.error('Error in handleConnection:', error);
         }
     }
 
-    handleDisconnect(@ConnectedSocket() client: Socket) {
+    handleDisconnect(client: Socket) {
         try {
-            for (const [userId, socketId] of this.userSocketMap.entries()) {
-                if (socketId === client.id) {
-                    this.userSocketMap.delete(userId);
-                    this.logger.log(`❌ Client disconnected: ${client.id} for user ${userId}`);
-                    this.logger.log(`📊 Remaining connections: ${this.userSocketMap.size}`);
+            for (const [userId, socketIds] of this.userSocketMap.entries()) {
+                const index = socketIds.indexOf(client.id);
+                if (index !== -1) {
+                    socketIds.splice(index, 1);
+                    this.logger.log(`Client disconnected: ${client.id} for user ${userId}`);
+
+                    // Jika tidak ada koneksi lagi, hapus dari map
+                    if (socketIds.length === 0) {
+                        this.userSocketMap.delete(userId);
+                    }
                     break;
                 }
             }
         } catch (error) {
-            this.logger.error(`Disconnection error: ${error.message}`);
+            this.logger.error('Error in handleDisconnect:', error);
         }
     }
 
     // Method untuk mengirim notifikasi ke user tertentu
-    async sendNotificationToUser(userId: number, notificationData: any): Promise<boolean> {
+    async sendNotificationToUser(userId: number, notificationData: any) {
         try {
-            const socketId = this.userSocketMap.get(userId);
-
-            if (!socketId) {
-                this.logger.warn(`User ${userId} is not connected via WebSocket`);
-                return false;
-            }
-
-            const payload = {
-                type: notificationData.type || 'NEW_NOTIFICATION',
-                data: {
-                    ...notificationData.data,
-                    serverTime: new Date(),
-                    id: `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-                }
-            };
-
-            this.server.to(`user_${userId}`).emit('notification', payload);
-            this.logger.log(`📨 Notification sent to user ${userId}`);
+            this.server.to(`user_${userId}`).emit('new_notification', notificationData);
+            this.logger.log(`Notification sent to user ${userId} via room`);
             return true;
-
         } catch (error) {
-            this.logger.error(`Failed to send notification to user ${userId}: ${error.message}`);
+            this.logger.error(`Failed to send notification to user ${userId}:`, error);
             return false;
         }
     }
 
     // Method untuk broadcast ke semua user
-    async broadcastNotification(notificationData: any): Promise<number> {
+    async broadcastNotification(notificationData: any) {
         try {
-            const payload = {
-                type: notificationData.type || 'BROADCAST',
-                data: {
-                    ...notificationData.data,
-                    serverTime: new Date(),
-                    id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-                }
-            };
-
-            this.server.to('general').emit('notification', payload);
-            const count = this.userSocketMap.size;
-
-            this.logger.log(`📢 Broadcast sent to ${count} users`);
-            return count;
-
+            this.server.to('general').emit('new_notification', notificationData);
+            this.logger.log(`Broadcast notification sent to all users`);
+            return true;
         } catch (error) {
-            this.logger.error(`Broadcast failed: ${error.message}`);
-            return 0;
+            this.logger.error('Failed to broadcast notification:', error);
+            return false;
         }
     }
+
 
     // Method untuk broadcast ke RT tertentu
     async broadcastToRT(rtNumber: string, notificationData: any): Promise<number> {
@@ -168,6 +138,40 @@ export class NotificationWebSocketGateway implements OnGatewayConnection, OnGate
             this.logger.error(`RT broadcast failed: ${error.message}`);
             return 0;
         }
+    }
+
+    // Method khusus untuk announcement broadcast
+    async broadcastAnnouncement(announcementData: any, targetRT?: string) {
+        try {
+            const notificationData = {
+                type: 'NEW_ANNOUNCEMENT',
+                data: announcementData
+            };
+
+            if (targetRT) {
+                // Broadcast ke RT tertentu
+                this.server.to(`rt_${targetRT}`).emit('new_notification', notificationData);
+                this.logger.log(`Announcement broadcast to RT ${targetRT}`);
+            } else {
+                // Broadcast ke semua
+                this.server.to('general').emit('new_notification', notificationData);
+                this.logger.log(`Announcement broadcast to all users`);
+            }
+
+            return true;
+        } catch (error) {
+            this.logger.error('Failed to broadcast announcement:', error);
+            return false;
+        }
+    }
+
+    // Debug: Get connected users
+    getConnectedUsers() {
+        const result = {};
+        for (const [userId, socketIds] of this.userSocketMap.entries()) {
+            result[userId] = socketIds.length;
+        }
+        return result;
     }
 
     // Helper method untuk mendapatkan info connections
