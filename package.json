@@ -20,7 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "vercel-build": "npx prisma generate && npm run build"
+    "vercel-build": "npx prisma generate && npm run build && ls -la dist/"
   },
   "engines": {
     "node": ">=18"
