@@ -5,26 +5,30 @@
       "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["dist/**", "public/**"]
+        "includeFiles": [
+          "dist/**",
+          "prisma/**",
+          "public/**",
+          "node_modules/.prisma/**",
+          "node_modules/@prisma/client/**",
+          "node_modules/prisma/**"
+        ],
+        "maxLambdaSize": "50mb"
       }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/index.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
-    },
-    {
-      "src": "/public/(.*)",
-      "dest": "/api/index.js"
-    },
-    {
       "src": "/(.*)",
       "dest": "/api/index.js"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npm run vercel-build"
 }

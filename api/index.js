@@ -1,20 +1,33 @@
 // api/index.js
 const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
 
-// Import serverless handler dari NestJS
-const serverless = require('serverless-http');
-const { bootstrap } = require('../dist/main');
+// Import Prisma client dulu
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-let app;
-let serverlessHandler;
+let cachedServer;
 
 module.exports = async (req, res) => {
-    if (!app) {
-        app = await bootstrap();
-        serverlessHandler = serverless(app);
+    if (!cachedServer) {
+        try {
+            // Pastikan Prisma client siap
+            await prisma.$connect();
+            console.log('✅ Prisma connected');
+
+            // Import NestJS app setelah Prisma ready
+            const { bootstrap } = require('../dist/main');
+            const { app } = await bootstrap();
+
+            cachedServer = createServer(app.getHttpAdapter().getInstance());
+            console.log('✅ NestJS app initialized for Vercel');
+        } catch (error) {
+            console.error('❌ Failed to initialize:', error);
+            return res.status(500).json({
+                error: 'Internal Server Error',
+                message: error.message
+            });
+        }
     }
 
-    return serverlessHandler(req, res);
+    return cachedServer.emit('request', req, res);
 };
