@@ -21,7 +21,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { HealthController } from './health/health.controller';
 import { HealthModule } from './health/health.module';
-import { DebugModule } from 'debug/debug.module';
+import { DebugModule } from './debug/debug.module';
 
 @Global() // Tambahkan @Global() agar bisa diakses di semua module
 @Module({
