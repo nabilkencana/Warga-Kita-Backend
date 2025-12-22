@@ -8,7 +8,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
+    "start": "node dist/main",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -19,7 +19,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy"
+    "prisma:migrate": "prisma migrate deploy",
+    "vercel-build": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "postinstall": "prisma generate",
   "dependencies": {
@@ -38,6 +42,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.9",
     "@prisma/client": "^6.19.0",
+    "@vercel/node": "^5.5.16",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
