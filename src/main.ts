@@ -17,7 +17,7 @@ async function bootstrap() {
       'http://localhost:8080',
       'https://wargakita.canadev.my.id',
       // Tambahkan domain Vercel Anda
-      'https://your-app.vercel.app',
+      'https://canadev.my.id',
       '*.vercel.app'
     ],
     credentials: true,
