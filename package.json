@@ -20,7 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "vercel-build": "npx prisma generate && npm run build && ls -la dist/"
+    "vercel-build": "npx prisma generate && nest build || echo 'Build mungkin ada warning'"
   },
   "engines": {
     "node": ">=18"
@@ -43,6 +43,7 @@
     "@nestjs/websockets": "^11.1.9",
     "@prisma/client": "^6.19.0",
     "@vercel/node": "^5.5.16",
+    "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",

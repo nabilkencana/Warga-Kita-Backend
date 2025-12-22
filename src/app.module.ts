@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -21,27 +21,19 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { HealthController } from './health/health.controller';
 import { HealthModule } from './health/health.module';
+import { DebugModule } from 'debug/debug.module';
 
+@Global() // Tambahkan @Global() agar bisa diakses di semua module
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: process.env.NODE_ENV === 'production' ? '.env.production' : '.env',
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      serveRoot: '/public', // URL path untuk akses file static
     }),
-
-    // Static files - hanya untuk development
-    ...(process.env.NODE_ENV !== 'production' ? [
-      ServeStaticModule.forRoot({
-        rootPath: join(__dirname, '..', 'public'),
-        serveRoot: '/public',
-        exclude: ['/api/*'],
-      })
-    ] : []),
-
-    // Modul-modul aplikasi
     UsersModule,
     AuthModule,
     PrismaModule,
+    ConfigModule.forRoot({ isGlobal: true }),
     AnnouncementsModule,
     ReportsModule,
     EmergencyModule,
@@ -53,9 +45,9 @@ import { HealthModule } from './health/health.module';
     NotificationModule,
     SecurityModule,
     HealthModule,
+    DebugModule// 🔥 aktifkan .env
   ],
   controllers: [AppController, SecurityController, HealthController],
   providers: [AppService, SecurityService],
-  exports: [AppService],
 })
 export class AppModule { }
