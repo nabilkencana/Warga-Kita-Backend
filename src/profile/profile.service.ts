@@ -49,7 +49,12 @@ export class ProfileService {
           kkUploadedAt: true,
           kkRejectionReason: true,
           kkVerifiedAt: true,
-          kkVerifiedBy: true,
+          verifiedByAdmin: {
+            select: {
+              namaLengkap: true,
+            },
+          },
+
 
           createdAt: true,
           updatedAt: true,
@@ -57,7 +62,7 @@ export class ProfileService {
       });
       const significantChanges: string[] = [];
 
-      if (UpdateProfileDto.namaLengkap && UpdateProfileDto.namaLengkap ) {
+      if (UpdateProfileDto.namaLengkap && UpdateProfileDto.namaLengkap) {
         significantChanges.push('nama lengkap');
       }
 
@@ -69,7 +74,7 @@ export class ProfileService {
         significantChanges.push('nomor telepon');
       }
 
-      if (UpdateProfileDto.alamat && UpdateProfileDto.alamat ) {
+      if (UpdateProfileDto.alamat && UpdateProfileDto.alamat) {
         significantChanges.push('alamat');
       }
 
@@ -104,6 +109,7 @@ export class ProfileService {
         usia,
         kkVerificationStatus,
         hasKKDocument: !!user.kkFile,
+        kkVerifiedBy: user.verifiedByAdmin?.namaLengkap ?? null,
       };
     } catch (error) {
       console.error('❌ Error getting user profile:', error);
@@ -1041,15 +1047,18 @@ export class ProfileService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: numericUserId },
-        select: {
-          id: true,
-          namaLengkap: true,
-          kkFile: true,
-          kkFilePublicId: true,
-          isVerified: true,
-          kkRejectionReason: true,
-          kkVerifiedAt: true,
-          kkVerifiedBy: true,
+        include: {
+          verifiedByAdmin: {
+            select: {
+              namaLengkap: true,
+              email: true,
+              kkFile: true,
+              kkFilePublicId: true,
+              isVerified: true,
+              kkRejectionReason: true,
+              kkVerifiedAt: true,
+            },
+          },
         },
       });
 
@@ -1090,7 +1099,9 @@ export class ProfileService {
             isVerified: user.isVerified,
             rejectionReason: user.kkRejectionReason,
             verifiedAt: user.kkVerifiedAt,
-            verifiedBy: user.kkVerifiedBy,
+            verifiedBy: user.verifiedByAdmin
+              ? user.verifiedByAdmin.namaLengkap
+              : null,
           },
         },
       };
@@ -1182,6 +1193,7 @@ export class ProfileService {
       // Determine verification status for each user
       const usersWithStatus = users.map(user => ({
         ...user,
+        kkVerifiedByName: user.verifiedByAdmin?.namaLengkap ?? null,
         kkVerificationStatus: this.determineKKVerificationStatus(user),
         hasKKDocument: !!user.kkFile,
       }));
@@ -1267,16 +1279,19 @@ export class ProfileService {
       const updatedUser = await this.prisma.user.update({
         where: { id: Number(userId) },
         data: updateData,
-        select: {
-          id: true,
-          namaLengkap: true,
-          email: true,
-          kkFile: true,
-          isVerified: true,
-          kkRejectionReason: true,
-          kkVerifiedAt: true,
-          kkVerifiedBy: true,
-          updatedAt: true,
+        include: {
+          verifiedByAdmin: {
+            select: {
+              id: true,
+              namaLengkap: true,
+              email: true,
+              kkFile: true,
+              isVerified: true,
+              kkRejectionReason: true,
+              kkVerifiedAt: true,
+              updatedAt: true,
+            },
+          },
         },
       });
 
@@ -1298,11 +1313,16 @@ export class ProfileService {
         success: true,
         message: `Dokumen KK berhasil ${verified ? 'diverifikasi' : 'ditolak'}`,
         data: {
-          ...updatedUser,
+          userId: updatedUser.id,
+          isVerified: updatedUser.isVerified,
+          kkVerifiedAt: updatedUser.kkVerifiedAt,
           kkVerificationStatus: this.determineKKVerificationStatus(updatedUser),
-          adminId,
+          verifiedBy: updatedUser.verifiedByAdmin
+            ? updatedUser.verifiedByAdmin.namaLengkap
+            : null,
         },
       };
+
     } catch (error) {
       console.error('❌ Error verifying KK document:', error);
 
@@ -1318,7 +1338,7 @@ export class ProfileService {
     }
   }
 
-  
+
 
   // ========== HELPER METHODS ==========
 

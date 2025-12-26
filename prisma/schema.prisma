@@ -47,6 +47,7 @@ model User {
   kkRejectionReason                                                            String?
   kkVerifiedAt                                                                 DateTime?
   kkVerifiedBy              Int?                // ID admin yang memverifikasi
+  kkVerifiedById                                                               Int?
   kkUploadedAt                                                                 DateTime?
 
   // Profile fields baru
