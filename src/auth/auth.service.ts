@@ -6,6 +6,7 @@ import { UsersService } from '../users/users.service';
 import { OAuth2Client } from 'google-auth-library';
 import { UserRole } from '@prisma/client';
 import { Resend } from 'resend';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -386,7 +387,11 @@ export class AuthService {
     }
   }
 
-  async verifyOtp(email: string, otp: string) {
+  async verifyOtp(
+    email: string,
+    otp: string,
+    req: Request,
+  ) {
     try {
       this.logger.log(`Verifying OTP for: ${email}`);
 
@@ -413,8 +418,11 @@ export class AuthService {
 
       const token = this.jwtService.sign(payload);
 
+      await this.saveLoginHistory(user.id, req);
+
       // Reset OTP setelah berhasil login
       await this.usersService.clearOtp(email);
+
 
       // Kembalikan data user yang lengkap
       const userResponse = {
@@ -427,6 +435,7 @@ export class AuthService {
       };
 
       this.logger.log(`OTP verification successful for: ${email}`);
+
 
       return {
         message: 'Login berhasil',
@@ -444,6 +453,47 @@ export class AuthService {
       throw new InternalServerErrorException('Gagal memverifikasi OTP');
     }
   }
+
+  async saveLoginHistory(
+    userId: number,
+    req: Request,
+  ) {
+    const deviceType =
+      (req.headers['x-device-type'] as string) ?? 'Unknown';
+
+    const deviceName =
+      (req.headers['x-device-name'] as string) ?? 'Unknown';
+
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+      req.ip ||
+      'Unknown';
+
+    await this.prisma.loginHistory.create({
+      data: {
+        userId,
+        deviceType,
+        deviceName,
+        ipAddress,
+        city: null, // optional (geoIP nanti)
+      },
+    });
+  }
+
+  async getLoginHistory(userId: number) {
+    return this.prisma.loginHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        deviceType: true,
+        deviceName: true,
+        city: true,
+        createdAt: true,
+      },
+    });
+  }
+
 
   // 🔐 GOOGLE OAUTH METHODS
   async googleLogin(req: any) {
@@ -548,7 +598,7 @@ export class AuthService {
           audience: this.config.get('GOOGLE_CLIENT_ID'),
         });
         googlePayload = ticket.getPayload();
-        
+
 
         if (!googlePayload) {
           throw new UnauthorizedException('Invalid Google ID token');

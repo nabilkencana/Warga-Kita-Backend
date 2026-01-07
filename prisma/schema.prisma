@@ -86,9 +86,10 @@ model User {
 
   // New relation for SATPAM role - emergency responses
   satpamEmergencyResponses                                                     EmergencyResponse[]
+  securities                                                                   Security[]
+  loginHistories                                                               LoginHistory[]
 
   @@map("users")
-  securities                                                                   Security[]
 }
 
 enum UserRole {
@@ -605,4 +606,21 @@ enum SecurityAction {
   LOCATION_UPDATE // Update lokasi
   STATUS_CHANGE   // Perubahan status
   INCIDENT_REPORT // Laporan kejadian
+}
+
+// === Login History ===
+model LoginHistory {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  deviceType String
+  deviceName String
+  ipAddress  String
+  city       String?
+  createdAt  DateTime  @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_histories")
+  @@index([userId])
+  @@index([createdAt])
 }

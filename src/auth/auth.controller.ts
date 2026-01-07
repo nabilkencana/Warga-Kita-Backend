@@ -2,6 +2,8 @@
 import { Controller, Post, Body, Get, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import express from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -14,8 +16,13 @@ export class AuthController {
   }
 
   @Post('verify-otp')
-  async verifyOtp(@Body() body: { email: string; otp: string }) {
-    return this.authService.verifyOtp(body.email, body.otp);
+  async verifyOtp(
+    @Body() 
+    body: { email: string; otp: string;},
+    @Req ()
+    req : express.Request
+  ) {
+    return this.authService.verifyOtp(body.email, body.otp , req);
   }
 
   // 🔐 Google OAuth Routes
@@ -49,4 +56,11 @@ export class AuthController {
   testAuth() {
     return { message: 'Auth API is working!' };
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('login-history')
+  async loginHistory(@Req() req) {
+    return this.authService.getLoginHistory(req.user.id);
+  }
+
 }
