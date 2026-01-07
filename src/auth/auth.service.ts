@@ -494,6 +494,21 @@ export class AuthService {
     });
   }
 
+  async logoutAllDevices(userId: number) {
+    await this.prisma.loginHistory.deleteMany({
+      where: {
+        userId: userId,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Berhasil logout dari semua perangkat',
+    };
+  }
+
+
+
 
   // 🔐 GOOGLE OAUTH METHODS
   async googleLogin(req: any) {

@@ -63,4 +63,11 @@ export class AuthController {
     return this.authService.getLoginHistory(req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('logout-all')
+  logoutAll(@Req() req: any) {
+    return this.authService.logoutAllDevices(req.user.id);
+  }
+
+
 }
