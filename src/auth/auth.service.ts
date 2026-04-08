@@ -379,7 +379,8 @@ export class AuthService {
         throw error;
       }
 
-      if (error.message.includes('timeout') || error.code === 'P2024') {
+      const errorObj = error as any;
+      if (errorObj.message?.includes('timeout') || errorObj.code === 'P2024') {
         throw new InternalServerErrorException('Database sedang sibuk, coba lagi dalam beberapa saat');
       }
 
@@ -710,7 +711,8 @@ export class AuthService {
       };
     } catch (error) {
       this.logger.error('Google mobile login failed:', error);
-      throw new UnauthorizedException(`Google authentication failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new UnauthorizedException(`Google authentication failed: ${errorMessage}`);
     }
   }
 
