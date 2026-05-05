@@ -4,21 +4,21 @@ import * as path from 'path';
 
 @Injectable()
 export class AppService {
-  getDownloadPage(): string {
-    // Ambil info real dari APK
-    const apkPath = path.join(process.cwd(), 'public/download/app-release.apk');
-    let fileSizeMB = '80'; // Default 80MB
-    let fileSizeBytes = '83886080'; // 80MB in bytes
+    getDownloadPage(): string {
+        // Ambil info real dari APK
+        const apkPath = path.join(process.cwd(), 'public/download/app-release.apk');
+        let fileSizeMB = '80'; // Default 80MB
+        let fileSizeBytes = '83886080'; // 80MB in bytes
 
-    if (fs.existsSync(apkPath)) {
-      const stats = fs.statSync(apkPath);
-      fileSizeBytes = stats.size.toString();
-      fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-    }
+        if (fs.existsSync(apkPath)) {
+            const stats = fs.statSync(apkPath);
+            fileSizeBytes = stats.size.toString();
+            fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+        }
 
-    
 
-    return `
+
+        return `
       <!DOCTYPE html>
       <html lang="id">
       <head>
@@ -447,5 +447,5 @@ export class AppService {
       </body>
       </html>
     `;
-  }
+    }
 }
