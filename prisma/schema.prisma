@@ -353,17 +353,22 @@ enum BillStatus {
 // === EXISTING MODELS ===
 
 model Announcement {
-  id             Int       @id @default(autoincrement())
-  title          String
-  description    String
-  targetAudience String
-  date           DateTime
-  day            String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdBy      Int
+  id              Int       @id @default(autoincrement())
+  title           String
+  description     String
+  targetAudience  String
+  date            DateTime
+  day             String?
+  imageUrl        String?   // URL gambar dari Cloudinary
+  imagePublicId   String?   // Public ID Cloudinary untuk delete
+  isHighlight     Boolean   @default(false) // Tampil sebagai banner utama
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       Int
 
-  admin          User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  admin           User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("announcements")
 }
 
 model Report {

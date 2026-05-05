@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, Req, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, Req, UseGuards, Logger, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AnnouncementsService } from './announcements.service';
 import { Request } from 'express'; // at the top of your file
 import { NotificationWebSocketGateway } from 'src/notification/websocket.gateway';
@@ -21,6 +22,17 @@ export class AnnouncementsController {
         private readonly announcementsService: AnnouncementsService,
         private readonly wsGateway : NotificationWebSocketGateway
     ) { }
+
+    // 🟢 Upload gambar pengumuman
+    @Post('upload-image')
+    @UseInterceptors(FileInterceptor('image'))
+    async uploadImage(@UploadedFile() file: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException('File gambar tidak ditemukan');
+        }
+        this.logger.log(`Uploading announcement image: ${file.originalname}`);
+        return this.announcementsService.uploadAnnouncementImage(file);
+    }
 
     // 🟢 Buat pengumuman (hanya admin)
     @Post()

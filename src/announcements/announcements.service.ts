@@ -1,8 +1,9 @@
-import { Injectable, Logger, ForbiddenException, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationWebSocketGateway } from 'src/notification/websocket.gateway';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class AnnouncementsService {
@@ -12,11 +13,20 @@ export class AnnouncementsService {
         private prisma: PrismaService,
         private notificationService: NotificationService,
         private wsGateway: NotificationWebSocketGateway,
+        private cloudinaryService: CloudinaryService,
     ) { }
 
     // 🟢 Admin membuat pengumuman dengan notifikasi real-time
     async create(adminId: number, data: any) {
         try {
+            // Jika isHighlight=true, reset highlight lainnya dulu
+            if (data.isHighlight) {
+                await this.prisma.announcement.updateMany({
+                    where: { isHighlight: true },
+                    data: { isHighlight: false },
+                });
+            }
+
             // 1. Buat pengumuman di database
             const announcement = await this.prisma.announcement.create({
                 data: {
@@ -25,6 +35,9 @@ export class AnnouncementsService {
                     targetAudience: data.targetAudience,
                     date: new Date(data.date),
                     day: data.day,
+                    imageUrl: data.imageUrl || null,
+                    imagePublicId: data.imagePublicId || null,
+                    isHighlight: data.isHighlight === true,
                     createdBy: adminId,
                 },
                 include: {
@@ -55,20 +68,33 @@ export class AnnouncementsService {
             };
         } catch (error) {
             this.logger.error('Error saat membuat pengumuman:', error);
-            throw new Error('Gagal membuat pengumuman');
+            throw new Error('Gagal membuat pengumuman: ' + error.message);
+        }
+    }
+
+    // 🟢 Upload gambar ke Cloudinary
+    async uploadAnnouncementImage(file: Express.Multer.File): Promise<{ imageUrl: string; imagePublicId: string }> {
+        try {
+            const result = await this.cloudinaryService.uploadFile(file, 'announcements');
+            return {
+                imageUrl: result.secure_url,
+                imagePublicId: result.public_id,
+            };
+        } catch (error) {
+            this.logger.error('Error uploading announcement image:', error);
+            throw new Error('Gagal mengupload gambar: ' + error.message);
         }
     }
 
     private async sendAnnouncementNotification(announcement: any, adminName: string) {
         try {
-            // Get users based on target audience
             let users: any[] = [];
 
             if (announcement.targetAudience === 'ALL_RESIDENTS') {
                 users = await this.prisma.user.findMany({
                     where: {
                         isActive: true,
-                        NOT: { id: announcement.createdBy } // Exclude admin sendiri
+                        NOT: { id: announcement.createdBy }
                     },
                     select: { id: true, namaLengkap: true },
                 });
@@ -101,7 +127,6 @@ export class AnnouncementsService {
 
             const userIds = users.map(user => user.id);
 
-            // 🔥 KIRIM KE DATABASE
             const dbResult = await this.notificationService.createBulkNotifications(userIds, {
                 type: 'ANNOUNCEMENT',
                 title: '📢 Pengumuman Baru',
@@ -114,6 +139,8 @@ export class AnnouncementsService {
                     description: announcement.description.substring(0, 100) + '...',
                     targetAudience: announcement.targetAudience,
                     createdBy: adminName,
+                    imageUrl: announcement.imageUrl || null,
+                    isHighlight: announcement.isHighlight,
                     action: 'view_announcement',
                     timestamp: new Date().toISOString(),
                 },
@@ -124,13 +151,12 @@ export class AnnouncementsService {
 
             this.logger.log(`Database notifications created: ${dbResult.count}`);
 
-            // 🔥 KIRIM WEBSOCKET KE SETIAP USER
             for (const userId of userIds) {
                 try {
                     await this.wsGateway.sendNotificationToUser(userId, {
                         type: 'NEW_ANNOUNCEMENT',
                         data: {
-                            id: `ann_${announcement.id}_${Date.now()}`, // ID unik untuk notif
+                            id: `ann_${announcement.id}_${Date.now()}`,
                             userId: userId,
                             type: 'ANNOUNCEMENT',
                             title: '📢 Pengumuman Baru',
@@ -142,6 +168,8 @@ export class AnnouncementsService {
                                 title: announcement.title,
                                 description: announcement.description.substring(0, 100) + '...',
                                 targetAudience: announcement.targetAudience,
+                                imageUrl: announcement.imageUrl || null,
+                                isHighlight: announcement.isHighlight,
                                 createdBy: adminName,
                                 action: 'view_announcement',
                                 timestamp: new Date().toISOString(),
@@ -153,10 +181,8 @@ export class AnnouncementsService {
                             createdBy: announcement.createdBy,
                         }
                     });
-                    this.logger.log(`WebSocket sent to user ${userId}`);
                 } catch (wsError) {
                     this.logger.error(`Failed to send WebSocket to user ${userId}:`, wsError);
-                    // Lanjutkan ke user berikutnya meski ada error
                 }
             }
 
@@ -164,7 +190,6 @@ export class AnnouncementsService {
 
         } catch (error) {
             this.logger.error('Failed to send announcement notifications:', error);
-            // Jangan throw error di sini agar pengumuman tetap tersimpan
         }
     }
 
@@ -180,7 +205,10 @@ export class AnnouncementsService {
                     }
                 },
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [
+                { isHighlight: 'desc' }, // Highlight tampil pertama
+                { createdAt: 'desc' },
+            ],
         });
     }
 
@@ -203,6 +231,23 @@ export class AnnouncementsService {
         return announcement;
     }
 
+    // 🟡 Ambil pengumuman yang di-highlight
+    async getHighlighted() {
+        return this.prisma.announcement.findFirst({
+            where: { isHighlight: true },
+            include: {
+                admin: {
+                    select: {
+                        id: true,
+                        namaLengkap: true,
+                        email: true
+                    }
+                },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+    }
+
     // 🟠 Admin bisa update dengan notifikasi
     async update(id: number, adminId: number, data: any) {
         const existing = await this.prisma.announcement.findUnique({
@@ -222,6 +267,23 @@ export class AnnouncementsService {
         if (existing.createdBy !== adminId)
             throw new ForbiddenException('Anda tidak punya izin untuk mengubah pengumuman ini');
 
+        // Jika set highlight baru, reset yang lain dulu
+        if (data.isHighlight === true && !existing.isHighlight) {
+            await this.prisma.announcement.updateMany({
+                where: { isHighlight: true, id: { not: id } },
+                data: { isHighlight: false },
+            });
+        }
+
+        // Hapus gambar lama dari Cloudinary jika diganti
+        if (data.imagePublicId && existing.imagePublicId && data.imagePublicId !== existing.imagePublicId) {
+            try {
+                await this.cloudinaryService.deleteFile(existing.imagePublicId);
+            } catch (e) {
+                this.logger.warn('Gagal hapus gambar lama:', e.message);
+            }
+        }
+
         const updatedAnnouncement = await this.prisma.announcement.update({
             where: { id },
             data: {
@@ -230,6 +292,9 @@ export class AnnouncementsService {
                 targetAudience: data.targetAudience,
                 date: new Date(data.date),
                 day: data.day,
+                imageUrl: data.imageUrl !== undefined ? data.imageUrl : existing.imageUrl,
+                imagePublicId: data.imagePublicId !== undefined ? data.imagePublicId : existing.imagePublicId,
+                isHighlight: data.isHighlight !== undefined ? data.isHighlight === true : existing.isHighlight,
                 updatedAt: new Date(),
             },
             include: {
@@ -242,17 +307,14 @@ export class AnnouncementsService {
             },
         });
 
-        // 🔔 NOTIFIKASI: Kirim notifikasi update ke semua yang pernah menerima
         await this.sendUpdateNotification(updatedAnnouncement, adminId);
 
         this.logger.log(`Announcement updated: ${id} by admin ${adminId}`);
         return updatedAnnouncement;
     }
 
-    // 🔔 Method untuk notifikasi update
     private async sendUpdateNotification(announcement: any, adminId: number) {
         try {
-            // Dapatkan semua user yang pernah mendapat notifikasi pengumuman ini
             const previousNotifications = await this.prisma.notification.findMany({
                 where: {
                     relatedEntityId: announcement.id.toString(),
@@ -281,14 +343,13 @@ export class AnnouncementsService {
                     data: {
                         announcementId: announcement.id,
                         title: announcement.title,
+                        imageUrl: announcement.imageUrl || null,
                         description: `Pengumuman telah diperbarui oleh ${admin?.namaLengkap || 'Admin'}`,
                         action: 'view_announcement',
                         timestamp: new Date().toISOString(),
                         isUpdate: true,
                     },
                 });
-
-                this.logger.log(`Update notification sent to ${userIds.length} users`);
             }
         } catch (error) {
             this.logger.error('Failed to send update notification:', error);
@@ -299,14 +360,6 @@ export class AnnouncementsService {
     async delete(id: number, adminId: number) {
         const existing = await this.prisma.announcement.findUnique({
             where: { id },
-            include: {
-                admin: {
-                    select: {
-                        id: true,
-                        namaLengkap: true,
-                    }
-                }
-            }
         });
 
         if (!existing) throw new NotFoundException('Pengumuman tidak ditemukan');
@@ -314,10 +367,18 @@ export class AnnouncementsService {
         if (existing.createdBy !== adminId)
             throw new ForbiddenException('Anda tidak punya izin untuk menghapus pengumuman ini');
 
-        // 🔔 NOTIFIKASI: Kirim notifikasi penghapusan (opsional)
+        // Hapus gambar dari Cloudinary jika ada
+        if (existing.imagePublicId) {
+            try {
+                await this.cloudinaryService.deleteFile(existing.imagePublicId);
+                this.logger.log(`Deleted image from Cloudinary: ${existing.imagePublicId}`);
+            } catch (e) {
+                this.logger.warn('Gagal hapus gambar dari Cloudinary:', e.message);
+            }
+        }
+
         await this.sendDeleteNotification(existing, adminId);
 
-        // Hapus notifikasi terkait
         await this.prisma.notification.deleteMany({
             where: {
                 relatedEntityId: id.toString(),
@@ -325,7 +386,6 @@ export class AnnouncementsService {
             },
         });
 
-        // Hapus pengumuman
         await this.prisma.announcement.delete({ where: { id } });
 
         this.logger.log(`Announcement deleted: ${id} by admin ${adminId}`);
@@ -335,10 +395,8 @@ export class AnnouncementsService {
         };
     }
 
-    // 🔔 Method untuk notifikasi penghapusan (opsional)
     private async sendDeleteNotification(announcement: any, adminId: number) {
         try {
-            // Dapatkan semua user yang pernah mendapat notifikasi pengumuman ini
             const previousNotifications = await this.prisma.notification.findMany({
                 where: {
                     relatedEntityId: announcement.id.toString(),
@@ -365,15 +423,12 @@ export class AnnouncementsService {
                         isDeleted: true,
                     },
                 });
-
-                this.logger.log(`Delete notification sent to ${userIds.length} users`);
             }
         } catch (error) {
             this.logger.error('Failed to send delete notification:', error);
         }
     }
 
-    // 📊 Stats untuk dashboard admin
     async getStats() {
         const [total, today, byAudience] = await Promise.all([
             this.prisma.announcement.count(),
